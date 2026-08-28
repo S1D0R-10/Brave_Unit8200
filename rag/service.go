@@ -31,6 +31,8 @@ type SearchResult struct {
 	ChunkID      string   `json:"chunk_id"`
 	FileID       string   `json:"file_id"` // mapped to file_hash
 	FileExt      string   `json:"file_ext"`
+	Title        string   `json:"title"` // source key (filename), if the point was indexed with one
+	Text         string   `json:"text"`  // chunk text, if the point was indexed with one
 	Score        float64  `json:"score"`
 	AdjacentPrev []string `json:"adjacent_prev"` // list of chunk_ids before this one
 	AdjacentNext []string `json:"adjacent_next"` // list of chunk_ids after this one
@@ -65,6 +67,8 @@ func (s *Service) Search(ctx context.Context, prompt string, topK int, adjCount 
 		fileHash, _ := payload["file_hash"].(string)
 		fileExt, _ := payload["file_ext"].(string)
 		chunkID, _ := payload["chunk_id"].(string)
+		title, _ := payload["key"].(string)
+		text, _ := payload["text"].(string)
 
 		if fileHash == "" || chunkID == "" {
 			s.logger.Printf("Warning: hit %s missing file_hash or chunk_id", hit.ID)
@@ -92,6 +96,8 @@ func (s *Service) Search(ctx context.Context, prompt string, topK int, adjCount 
 			ChunkID:      chunkID,
 			FileID:       fileHash,
 			FileExt:      fileExt,
+			Title:        title,
+			Text:         text,
 			Score:        hit.Score,
 			AdjacentPrev: prev,
 			AdjacentNext: next,

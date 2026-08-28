@@ -8,14 +8,19 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 // VectorRecord represents a single chunk vector to be stored.
-// No chunk text is persisted — only the embedding vector and metadata payload.
+// The chunk text and source key are persisted alongside the vector so the
+// RAG search service can ground generated answers and citations in the
+// original content.
 type VectorRecord struct {
 	FileHash string    // SHA-256 hash of the source file
 	FileExt  string    // file extension with dot (e.g. ".pdf")
 	ChunkID  string    // deterministic chunk ID ("{start}-{end}")
+	Key      string    // S3 object key (source filename), used as the citation title
+	Text     string    // chunk text content, used to ground generated answers
 	Vector   []float32 // embedding vector
 }
 
@@ -134,13 +139,17 @@ type qdrantPoint struct {
 }
 
 // SaveChunks upserts vector records as points in the Qdrant collection.
-// Payload contains only metadata: file_hash, file_ext, chunk_id. No text.
+// Payload contains file_hash, file_ext, chunk_id, the source key (title) and
+// the chunk text, so search results can ground a generated answer and cite
+// their real source.
 func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
 
 	q.logger.Printf("[qdrant] upserting %d points to %q", len(records), q.collection)
+
+	indexedAt := time.Now().UTC().Format(time.RFC3339)
 
 	points := make([]qdrantPoint, len(records))
 	for i, r := range records {
@@ -151,9 +160,12 @@ func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) er
 			ID:     pointID,
 			Vector: r.Vector,
 			Payload: map[string]interface{}{
-				"file_hash": r.FileHash,
-				"file_ext":  r.FileExt,
-				"chunk_id":  r.ChunkID,
+				"file_hash":  r.FileHash,
+				"file_ext":   r.FileExt,
+				"chunk_id":   r.ChunkID,
+				"key":        r.Key,
+				"text":       r.Text,
+				"indexed_at": indexedAt,
 			},
 		}
 	}
