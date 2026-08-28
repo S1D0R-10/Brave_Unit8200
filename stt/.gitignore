@@ -1,0 +1,13 @@
+/venv/
+/__pycache__/
+*.py[cod]
+/stt
+/stt.exe
+/coverage.out
+/models/
+/data/inbox/*
+/data/work/*
+/data/output/*
+!/data/inbox/.gitkeep
+!/data/work/.gitkeep
+!/data/output/.gitkeep
