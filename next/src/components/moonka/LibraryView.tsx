@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { type DocRow } from "@/lib/moonka-data";
 import { pluralPl } from "@/lib/draft";
+import { ChunksDrawer } from "./ChunksDrawer";
 import "./library-view.css";
 
 interface LibraryViewProps {
@@ -15,15 +16,16 @@ const isRecording = (name: string) => name.toLowerCase().endsWith(".mp4");
 
 export function LibraryView({ docs, setDocs }: LibraryViewProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedDoc, setSelectedDoc] = useState<DocRow | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const patchDoc = (name: string, patch: Partial<DocRow>) =>
     setDocs((prev) => prev.map((doc) => (doc.name === name ? { ...doc, ...patch } : doc)));
 
-  // Opens the file the user actually uploaded, straight from the bucket.
+  // Opens the Drawer to show chunks.
   const openDoc = (doc: DocRow) => {
-    if (!doc.key) return;
-    window.open(`/api/file?key=${encodeURIComponent(doc.key)}`, "_blank", "noopener");
+    setSelectedDoc(doc);
   };
 
   const handleUpload = async (files: FileList | null) => {
@@ -127,6 +129,8 @@ export function LibraryView({ docs, setDocs }: LibraryViewProps) {
           type="search"
           className="moonka-library__search"
           placeholder="Szukaj w nazwach…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
         <input
           type="file"
@@ -166,7 +170,9 @@ export function LibraryView({ docs, setDocs }: LibraryViewProps) {
           <div className="moonka-library__cell">Status</div>
           <div className="moonka-library__cell" />
         </div>
-        {docs.map((doc, index) => (
+        {docs
+          .filter((doc) => doc.name.toLowerCase().includes(search.toLowerCase()))
+          .map((doc, index) => (
           <div key={doc.key ?? doc.name} className="moonka-library__row" data-odd={index % 2 === 1}>
             <div
               className="moonka-library__cell moonka-library__cell--name"
@@ -191,6 +197,10 @@ export function LibraryView({ docs, setDocs }: LibraryViewProps) {
           </div>
         ))}
       </div>
+
+      {selectedDoc && (
+        <ChunksDrawer doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      )}
     </div>
   );
 }

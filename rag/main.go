@@ -71,6 +71,7 @@ func main() {
 	mux.HandleFunc("/handoff", handler.HandleHandoff)
 	mux.HandleFunc("/kb/stats", handler.HandleKbStats)
 	mux.HandleFunc("/kb/files", handler.HandleKbFiles)
+	mux.HandleFunc("/kb/files/chunks", handler.HandleKbFileChunks)
 	mux.HandleFunc("/ping", handler.HandlePing)
 
 	addr := fmt.Sprintf(":%s", port)

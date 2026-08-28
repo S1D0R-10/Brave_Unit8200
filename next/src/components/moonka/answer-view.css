@@ -134,11 +134,24 @@
 
 .moonka-answer__sentence-warning {
   display: block;
-  margin-top: 6px;
-  font-family: var(--font-display);
-  font-size: 10.5px;
-  letter-spacing: 0.05em;
+  margin-top: 8px;
   color: var(--color-pink);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.moonka-answer__sentence-quote {
+  display: block;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--color-bg);
+  border-left: 3px solid var(--color-cyan);
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--color-ink);
+  opacity: 0.9;
 }
 
 .moonka-answer__actions {

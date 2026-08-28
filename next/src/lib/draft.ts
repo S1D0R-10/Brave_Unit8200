@@ -5,6 +5,7 @@ export interface DraftSentence {
   text: string;
   sourceId?: string;
   weak: boolean;
+  quote?: string;
 }
 
 export interface DraftSource {

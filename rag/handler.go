@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // Handler holds HTTP handlers for the search microservice.
@@ -234,6 +235,86 @@ func (h *Handler) HandleKbStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, http.StatusOK, stats)
+}
+
+// HandleKbFileChunks returns the text of all chunks for a given file.
+//
+// GET /kb/files/chunks?key=...
+func (h *Handler) HandleKbFileChunks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.writeError(w, http.StatusMethodNotAllowed, "only GET is allowed")
+		return
+	}
+
+	key := r.URL.Query().Get("key")
+	if key == "" {
+		h.writeError(w, http.StatusBadRequest, "\"key\" parameter is required")
+		return
+	}
+
+	chunks, err := h.service.qdrant.GetChunksByFileKey(r.Context(), key)
+	if err != nil {
+		h.logger.Printf("GetChunksByFileKey failed: %v", err)
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if len(chunks) == 0 {
+		h.writeJSON(w, http.StatusOK, map[string]interface{}{"chunks": []interface{}{}})
+		return
+	}
+
+	sortChunksByStart(chunks)
+
+	// Fetch full file from S3
+	data, err := h.service.storage.FetchObject(r.Context(), key)
+	if err != nil {
+		h.logger.Printf("FetchObject failed: %v", err)
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	type chunkResponse struct {
+		ChunkID string `json:"chunk_id"`
+		Text    string `json:"text"`
+	}
+	var response []chunkResponse
+
+	for _, chunk := range chunks {
+		chunkID, ok := chunk.Payload["chunk_id"].(string)
+		if !ok || chunkID == "" {
+			continue
+		}
+		
+		start, end, err := DecodeChunkID(chunkID)
+		if err != nil {
+			continue
+		}
+
+		if start < 0 { start = 0 }
+		if end >= int64(len(data)) { end = int64(len(data)) - 1 }
+		
+		if start > end || start >= int64(len(data)) {
+			continue
+		}
+
+		text := string(data[start : end+1])
+		if strings.HasSuffix(strings.ToLower(key), transcriptSuffix) {
+			text = stripTranscriptTimestamps(text)
+		}
+		text = strings.TrimSpace(text)
+
+		response = append(response, chunkResponse{
+			ChunkID: chunkID,
+			Text:    text,
+		})
+	}
+
+	if response == nil {
+		response = []chunkResponse{}
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{"chunks": response})
 }
 
 // withCORS allows the browser extension (chrome-extension://…,

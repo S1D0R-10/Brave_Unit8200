@@ -51,6 +51,7 @@ type DraftSentence struct {
 	Text     string `json:"text"`
 	SourceID string `json:"sourceId,omitempty"`
 	Weak     bool   `json:"weak"`
+	Quote    string `json:"quote,omitempty"`
 }
 
 type DraftSource struct {
@@ -199,6 +200,7 @@ type llmSentence struct {
 	Text      string `json:"text"`
 	SourceNum int    `json:"source_num"`
 	Weak      bool   `json:"weak"`
+	Quote     string `json:"quote"`
 }
 
 type llmResponse struct {
@@ -209,9 +211,10 @@ type llmResponse struct {
 const draftSystemPrompt = `Jesteś asystentem, który pomaga rodzicom i nauczycielom odpowiadać na pytania, korzystając WYŁĄCZNIE z dostarczonych fragmentów źródeł. Zasady:
 - Pisz po polsku, ciepłym, konkretnym tonem, bez pouczania.
 - Każde zdanie odpowiedzi musi opierać się na jednym z ponumerowanych fragmentów źródeł. Podaj jego numer w "source_num".
+- Dla każdego zdania, w polu "quote" zwróć dosłowny cytat z fragmentu źródłowego, który potwierdza to zdanie. Jeśli zdanie nie opiera się na konkretnym cytacie, zostaw puste.
 - Jeśli jakieś zdanie jest ogólną radą, którą tylko luźno wspierają źródła, ustaw "weak": true.
 - Jeśli fragmenty źródeł NIE zawierają wystarczających informacji, aby odpowiedzieć na pytanie, ustaw "sufficient": false i zwróć pustą listę zdań. Nie zmyślaj odpowiedzi.
-- Odpowiedz WYŁĄCZNIE obiektem JSON w formacie: {"sufficient": true|false, "sentences": [{"text": "...", "source_num": 1, "weak": false}]}`
+- Odpowiedz WYŁĄCZNIE obiektem JSON w formacie: {"sufficient": true|false, "sentences": [{"text": "...", "source_num": 1, "weak": false, "quote": "..."}]}`
 
 func (d *DraftService) generate(ctx context.Context, question string, sources []DraftSource) ([]DraftSentence, bool, error) {
 	var b strings.Builder
@@ -247,6 +250,7 @@ func (d *DraftService) generate(ctx context.Context, question string, sources []
 			Text:     s.Text,
 			SourceID: sourceID,
 			Weak:     s.Weak,
+			Quote:    s.Quote,
 		})
 	}
 

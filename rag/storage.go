@@ -131,3 +131,32 @@ func (s *S3Storage) FetchRange(ctx context.Context, key string, start, end int64
 			key, start, end, resp.StatusCode, string(body))
 	}
 }
+
+// FetchObject returns the entire object at key.
+func (s *S3Storage) FetchObject(ctx context.Context, key string) ([]byte, error) {
+	url := s.objectURL(key)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request for %q: %w", key, err)
+	}
+
+	s3Sign(req, s.accessKey, s.secretKey, s.region, "s3")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("S3 GET %q: %w", key, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("S3 GET %q returned %d: %s", key, resp.StatusCode, string(body))
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading %q: %w", key, err)
+	}
+	return data, nil
+}
