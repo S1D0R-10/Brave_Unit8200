@@ -2,10 +2,10 @@
 
 import { useState, useRef } from "react";
 import { type DocRow } from "@/lib/moonka-data";
+import { pluralPl } from "@/lib/draft";
 import "./library-view.css";
 
 interface LibraryViewProps {
-  onOpenDoc: (docNumber: number) => void;
   docs: DocRow[];
   setDocs: React.Dispatch<React.SetStateAction<DocRow[]>>;
 }
@@ -13,12 +13,18 @@ interface LibraryViewProps {
 // Recordings take the long way round: stt first, the embedder afterwards.
 const isRecording = (name: string) => name.toLowerCase().endsWith(".mp4");
 
-export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
+export function LibraryView({ docs, setDocs }: LibraryViewProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const setStatus = (name: string, status: string) =>
-    setDocs((prev) => prev.map((doc) => (doc.name === name ? { ...doc, status } : doc)));
+  const patchDoc = (name: string, patch: Partial<DocRow>) =>
+    setDocs((prev) => prev.map((doc) => (doc.name === name ? { ...doc, ...patch } : doc)));
+
+  // Opens the file the user actually uploaded, straight from the bucket.
+  const openDoc = (doc: DocRow) => {
+    if (!doc.key) return;
+    window.open(`/api/file?key=${encodeURIComponent(doc.key)}`, "_blank", "noopener");
+  };
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -57,7 +63,10 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
         // The file is in the bucket, but nothing has read it yet. /api/ingest
         // is what actually starts the pipeline — transcription for recordings,
         // indexing for documents.
-        setStatus(file.name, isRecording(file.name) ? "Transkrypcja…" : "Indeksowanie…");
+        patchDoc(file.name, {
+          key,
+          status: isRecording(file.name) ? "Transkrypcja…" : "Indeksowanie…",
+        });
 
         const ingestRes = await fetch("/api/ingest", {
           method: "POST",
@@ -73,13 +82,15 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
         const { status } = await ingestRes.json();
         // A recording is only queued here; its transcript reaches the index
         // minutes later, without the browser waiting around for it.
-        setStatus(file.name, status === "transcribing" ? "W transkrypcji" : "Zindeksowany");
+        patchDoc(file.name, {
+          status: status === "transcribing" ? "W transkrypcji" : "Zindeksowany",
+        });
       } catch (error) {
         console.error("Upload error:", error);
-        setStatus(file.name, "Błąd wgrania");
+        patchDoc(file.name, { status: "Błąd wgrania" });
       }
     }
-    
+
     // Clear input so the same file can be uploaded again if needed
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -108,7 +119,8 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
         <div className="moonka-library__heading">
           <h3 className="moonka-library__title">MATERIAŁY</h3>
           <span className="moonka-library__subtitle">
-            {docs.length} dokumenty · w tej wersji przeszukiwany jest tylko tekst
+            {docs.length} {pluralPl(docs.length, "dokument", "dokumenty", "dokumentów")} · w tej
+            wersji przeszukiwany jest tylko tekst
           </span>
         </div>
         <input
@@ -116,15 +128,15 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
           className="moonka-library__search"
           placeholder="Szukaj w nazwach…"
         />
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: "none" }} 
-          multiple 
-          onChange={(e) => handleUpload(e.target.files)} 
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          multiple
+          onChange={(e) => handleUpload(e.target.files)}
         />
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="moonka-btn moonka-btn-loud moonka-library__upload"
           onClick={() => fileInputRef.current?.click()}
         >
@@ -132,7 +144,7 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
         </button>
       </div>
 
-      <div 
+      <div
         className={`moonka-library__dropzone ${isDragging ? "moonka-library__dropzone--active" : ""}`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -155,10 +167,11 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
           <div className="moonka-library__cell" />
         </div>
         {docs.map((doc, index) => (
-          <div key={doc.name} className="moonka-library__row" data-odd={index % 2 === 1}>
+          <div key={doc.key ?? doc.name} className="moonka-library__row" data-odd={index % 2 === 1}>
             <div
               className="moonka-library__cell moonka-library__cell--name"
-              onClick={() => onOpenDoc(1)}
+              onClick={() => openDoc(doc)}
+              title={doc.key ? "Otwórz oryginalny plik" : undefined}
             >
               {doc.name}
             </div>

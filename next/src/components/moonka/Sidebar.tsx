@@ -1,13 +1,25 @@
 import { NAV, type View } from "@/lib/moonka-data";
+import { pluralPl } from "@/lib/draft";
 import "./sidebar.css";
+
+export interface KbStats {
+  docCount: number;
+  syncedAt: string;
+}
 
 interface SidebarProps {
   activeNavId: string;
   onNavigate: (view: View) => void;
   docCount?: number;
+  kbStats?: KbStats | null;
 }
 
-export function Sidebar({ activeNavId, onNavigate, docCount }: SidebarProps) {
+export function Sidebar({ activeNavId, onNavigate, docCount, kbStats }: SidebarProps) {
+  const indexed = kbStats?.docCount ?? 0;
+  const bucketDocs = docCount ?? 0;
+  const coverage =
+    bucketDocs > 0 ? Math.min(100, Math.round((indexed / bucketDocs) * 100)) : indexed > 0 ? 100 : 0;
+
   return (
     <aside className="moonka-sidebar">
       <div className="moonka-sidebar__brand">
@@ -52,12 +64,22 @@ export function Sidebar({ activeNavId, onNavigate, docCount }: SidebarProps) {
       <div className="moonka-sidebar__kb-card">
         <div className="moonka-section-label">Baza wiedzy</div>
         <div className="moonka-sidebar__kb-count">
-          {docCount !== undefined ? docCount : 104} <span>dokumenty</span>
+          {indexed}{" "}
+          <span>{pluralPl(indexed, "dokument w indeksie", "dokumenty w indeksie", "dokumentów w indeksie")}</span>
         </div>
         <div className="moonka-sidebar__kb-bar">
-          <div className="moonka-sidebar__kb-bar-fill" style={{ width: "86%" }} />
+          <div className="moonka-sidebar__kb-bar-fill" style={{ width: `${coverage}%` }} />
         </div>
-        <div className="moonka-sidebar__kb-updated">Zindeksowano dziś, 09:14</div>
+        <div className="moonka-sidebar__kb-updated">
+          {kbStats?.syncedAt
+            ? `Zindeksowano ${new Date(kbStats.syncedAt).toLocaleString("pl-PL", {
+                day: "numeric",
+                month: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}`
+            : "Nic jeszcze nie zindeksowano"}
+        </div>
       </div>
 
       <div className="moonka-sidebar__user">

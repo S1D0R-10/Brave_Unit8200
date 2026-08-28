@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { View, DocRow } from "@/lib/moonka-data";
 import type { DraftResult } from "@/lib/draft";
 import { TornPaperFilters } from "./TornPaperFilters";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, type KbStats } from "./Sidebar";
 import { AskView } from "./AskView";
 import { ThinkingView } from "./ThinkingView";
 import { AnswerView } from "./AnswerView";
@@ -12,7 +12,6 @@ import { NoAnswerView } from "./NoAnswerView";
 import { LibraryView } from "./LibraryView";
 import { HistoryView } from "./HistoryView";
 import { SettingsView } from "./SettingsView";
-import { DocDrawer } from "./DocDrawer";
 import "./moonka-shared.css";
 import "./moonka-app.css";
 
@@ -20,8 +19,8 @@ const ASK_FAMILY_VIEWS: View[] = ["empty", "thinking", "answer", "noanswer"];
 
 export function MoonkaApp() {
   const [view, setView] = useState<View>("empty");
-  const [docNumber, setDocNumber] = useState<number | null>(null);
   const [docs, setDocs] = useState<DocRow[]>([]);
+  const [kbStats, setKbStats] = useState<KbStats | null>(null);
   const [question, setQuestion] = useState("");
   const [draft, setDraft] = useState<DraftResult | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
@@ -37,12 +36,20 @@ export function MoonkaApp() {
       })
       .catch(err => console.error("Failed to fetch documents", err));
 
+    fetch("/api/kb-stats")
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data && typeof data.docCount === "number") {
+          setKbStats(data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch kb stats", err));
+
     return () => askAbort.current?.abort();
   }, []);
 
   const navigate = (nextView: View) => {
     setView(nextView);
-    setDocNumber(null);
   };
 
   const runAnswer = async (asked: string) => {
@@ -85,7 +92,12 @@ export function MoonkaApp() {
     <div className="moonka-shell">
       <TornPaperFilters />
 
-      <Sidebar activeNavId={activeNavId} onNavigate={navigate} docCount={docs.length} />
+      <Sidebar
+        activeNavId={activeNavId}
+        onNavigate={navigate}
+        docCount={docs.length}
+        kbStats={kbStats}
+      />
 
       <main className="moonka-main">
         {view === "empty" && (
@@ -114,12 +126,10 @@ export function MoonkaApp() {
             onGoLibrary={() => navigate("library")}
           />
         )}
-        {view === "library" && <LibraryView onOpenDoc={setDocNumber} docs={docs} setDocs={setDocs} />}
+        {view === "library" && <LibraryView docs={docs} setDocs={setDocs} />}
         {view === "history" && <HistoryView />}
         {view === "settings" && <SettingsView />}
       </main>
-
-      <DocDrawer docNumber={docNumber} onClose={() => setDocNumber(null)} />
     </div>
   );
 }
