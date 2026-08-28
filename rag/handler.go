@@ -26,14 +26,16 @@ type searchRequestPayload struct {
 }
 
 type searchResponsePayload struct {
-	Status  string         `json:"status"`
-	Results []SearchResult `json:"results"`
+	Status  string   `json:"status"`
+	Answer  string   `json:"answer"`
+	Sources []Source `json:"sources"`
 }
 
-// HandleSearch processes the vector search.
+// HandleSearch answers a prompt from the indexed material.
 //
 // POST /search
-// Body: {"prompt": "how to build rag", "top_k": 3, "adj_count": 1}
+// Body: {"prompt": "jak zbudowac rag", "top_k": 5, "adj_count": 1}
+// Response: {"status":"ok","answer":"... [1]","sources":[{"ref":1,...}]}
 func (h *Handler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.writeError(w, http.StatusMethodNotAllowed, "only POST is allowed")
@@ -52,37 +54,36 @@ func (h *Handler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.TopK <= 0 {
-		req.TopK = 5 // default
+		req.TopK = 5
 	}
-
-	// Default adjacency to 1 (1 chunk before, 1 chunk after)
 	if req.AdjCount < 0 {
 		req.AdjCount = 1
 	}
 
 	h.logger.Printf("POST /search prompt=%q topK=%d adj=%d", req.Prompt, req.TopK, req.AdjCount)
 
-	results, err := h.service.Search(r.Context(), req.Prompt, req.TopK, req.AdjCount)
+	answer, err := h.service.Answer(r.Context(), req.Prompt, req.TopK, req.AdjCount)
 	if err != nil {
-		h.logger.Printf("Search failed: %v", err)
+		h.logger.Printf("Answer failed: %v", err)
 		h.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	if results == nil {
-		results = []SearchResult{} // ensure JSON array instead of null
+	if answer.Sources == nil {
+		answer.Sources = []Source{} // ensure JSON array instead of null
 	}
 
 	h.writeJSON(w, http.StatusOK, searchResponsePayload{
 		Status:  "ok",
-		Results: results,
+		Answer:  answer.Answer,
+		Sources: answer.Sources,
 	})
 }
 
 // HandlePing is a health check endpoint.
 func (h *Handler) HandlePing(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, map[string]string{
-		"status": "ok",
+		"status":  "ok",
 		"service": "rag-search",
 	})
 }

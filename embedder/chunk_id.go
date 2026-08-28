@@ -9,10 +9,9 @@ import (
 // EncodeChunkID produces a deterministic, reversible chunk identifier.
 // Format: "{start}-{end}" where start and end are decimal integers.
 //
-// The meaning of start/end depends on file_ext (stored separately in the payload):
-//   - text (.txt, .md, .html): word indices
-//   - media (.mp4, .mp3, .wav): milliseconds
-//   - pdf: character offsets
+// start/end are always inclusive BYTE offsets into the text object named by
+// file_key in the payload, so a chunk ID translates straight into an HTTP
+// "Range: bytes=start-end" request against the bucket.
 func EncodeChunkID(start, end int64) string {
 	return fmt.Sprintf("%d-%d", start, end)
 }
