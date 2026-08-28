@@ -38,20 +38,21 @@ func TestKindFromExt(t *testing.T) {
 	}
 }
 
-func TestLocatorFromChunk(t *testing.T) {
+func TestLocatorFor(t *testing.T) {
 	cases := []struct {
-		chunkID string
-		ext     string
-		want    string
+		result SearchResult
+		want   string
 	}{
-		{"0-99", ".pdf", "znaki 0–99"},
-		{"0-99", ".txt", "słowa 0–99"},
-		{"65-125", ".mp3", "01:05–02:05"},
-		{"not-a-chunk-id", ".pdf", ""},
+		// Byte offsets are what a chunk_id means now, for every file type.
+		{SearchResult{ChunkID: "0-99", FileExt: ".pdf"}, "bajty 0–99"},
+		{SearchResult{ChunkID: "1024-4096", FileExt: ".txt"}, "bajty 1024–4096"},
+		// A recording locates by timecode, not by where its transcript sits.
+		{SearchResult{ChunkID: "0-99", FileExt: ".mp4", Timecode: "01:05–02:05"}, "01:05–02:05"},
+		{SearchResult{ChunkID: "not-a-chunk-id", FileExt: ".pdf"}, ""},
 	}
 	for _, c := range cases {
-		if got := locatorFromChunk(c.chunkID, c.ext); got != c.want {
-			t.Errorf("locatorFromChunk(%q, %q) = %q, want %q", c.chunkID, c.ext, got, c.want)
+		if got := locatorFor(c.result); got != c.want {
+			t.Errorf("locatorFor(%+v) = %q, want %q", c.result, got, c.want)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
@@ -86,6 +87,38 @@ func (s *S3Storage) Download(ctx context.Context, key string) ([]byte, error) {
 
 	s.logger.Printf("downloaded %d bytes for %q", len(data), key)
 	return data, nil
+}
+
+// Upload stores data under key. The pipeline only ever writes derived text —
+// PDF extractions here, transcripts from stt — never the originals.
+func (s *S3Storage) Upload(ctx context.Context, key string, data []byte, contentType string) error {
+	s.logger.Printf("uploading %d bytes to s3://%s/%s", len(data), s.bucket, key)
+
+	url := fmt.Sprintf("%s/%s/%s", s.endpoint, s.bucket, key)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("creating PUT request for %q: %w", key, err)
+	}
+	req.ContentLength = int64(len(data))
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	s3Sign(req, s.accessKey, s.secretKey, s.region, "s3")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("S3 PUT %q: %w", key, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("S3 PUT %q returned %d: %s", key, resp.StatusCode, string(body))
+	}
+
+	return nil
 }
 
 // listBucketResult is the XML response from S3 ListObjectsV2.

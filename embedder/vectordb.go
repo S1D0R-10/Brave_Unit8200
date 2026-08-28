@@ -12,22 +12,28 @@ import (
 )
 
 // VectorRecord represents a single chunk vector to be stored.
-// The chunk text and source key are persisted alongside the vector so the
-// RAG search service can ground generated answers and citations in the
-// original content.
+// No chunk text is persisted — only the embedding vector and a metadata payload
+// that tells rag-search which bytes of which object to re-read.
 type VectorRecord struct {
-	FileHash string    // SHA-256 hash of the source file
-	FileExt  string    // file extension with dot (e.g. ".pdf")
-	ChunkID  string    // deterministic chunk ID ("{start}-{end}")
-	Key      string    // S3 object key (source filename), used as the citation title
-	Text     string    // chunk text content, used to ground generated answers
-	Vector   []float32 // embedding vector
+	FileHash  string    // SHA-256 of the text object the offsets are valid against
+	FileKey   string    // bucket key to Range-read, e.g. "film-transcription.txt"
+	SourceKey string    // what the user uploaded, e.g. "film.mp4"
+	FileExt   string    // extension of SourceKey, e.g. ".mp4"
+	ChunkID   string    // deterministic chunk ID ("{startByte}-{endByte}")
+	Timed     bool      // chunk came from a transcript, so StartMS/EndMS apply
+	StartMS   int64     // position in the recording, milliseconds
+	EndMS     int64     // position in the recording, milliseconds
+	Vector    []float32 // embedding vector
 }
 
 // VectorStore is the interface for persisting chunk vectors + metadata.
 type VectorStore interface {
 	// EnsureCollection creates the citations collection if it doesn't exist.
 	EnsureCollection(ctx context.Context) error
+
+	// DeleteByFileKey removes every point belonging to a text object, so a
+	// re-index cannot leave stale byte offsets behind.
+	DeleteByFileKey(ctx context.Context, fileKey string) error
 
 	// SaveChunks persists a batch of vector records.
 	SaveChunks(ctx context.Context, records []VectorRecord) error
@@ -131,6 +137,42 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	return nil
 }
 
+// DeleteByFileKey removes every point whose payload matches file_key.
+func (q *QdrantStore) DeleteByFileKey(ctx context.Context, fileKey string) error {
+	body := map[string]interface{}{
+		"filter": map[string]interface{}{
+			"must": []map[string]interface{}{
+				{"key": "file_key", "match": map[string]interface{}{"value": fileKey}},
+			},
+		},
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshaling delete request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/collections/%s/points/delete?wait=true", q.baseURL, q.collection)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("creating delete request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("deleting points: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete failed: %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
 // qdrantPoint is a single point for the Qdrant upsert API.
 type qdrantPoint struct {
 	ID      string                 `json:"id"`
@@ -139,9 +181,8 @@ type qdrantPoint struct {
 }
 
 // SaveChunks upserts vector records as points in the Qdrant collection.
-// Payload contains file_hash, file_ext, chunk_id, the source key (title) and
-// the chunk text, so search results can ground a generated answer and cite
-// their real source.
+// The payload carries only metadata — file_key, chunk_id and friends — never
+// chunk text: the text is re-read from the bucket by byte range at query time.
 func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) error {
 	if len(records) == 0 {
 		return nil
@@ -153,20 +194,27 @@ func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) er
 
 	points := make([]qdrantPoint, len(records))
 	for i, r := range records {
-		// Deterministic point ID: hash of file_hash + chunk_id.
-		pointID := sha256Hex([]byte(r.FileHash + ":" + r.ChunkID))
+		// Deterministic point ID derived from file_key + chunk_id. Qdrant only
+		// accepts unsigned integers or UUIDs, so the digest is shaped into one.
+		pointID := uuidFromHash(sha256Hex([]byte(r.FileKey + ":" + r.ChunkID)))
+
+		payload := map[string]interface{}{
+			"file_hash":  r.FileHash,
+			"file_key":   r.FileKey,
+			"source_key": r.SourceKey,
+			"file_ext":   r.FileExt,
+			"chunk_id":   r.ChunkID,
+			"indexed_at": indexedAt,
+		}
+		if r.Timed {
+			payload["start_ms"] = r.StartMS
+			payload["end_ms"] = r.EndMS
+		}
 
 		points[i] = qdrantPoint{
-			ID:     pointID,
-			Vector: r.Vector,
-			Payload: map[string]interface{}{
-				"file_hash":  r.FileHash,
-				"file_ext":   r.FileExt,
-				"chunk_id":   r.ChunkID,
-				"key":        r.Key,
-				"text":       r.Text,
-				"indexed_at": indexedAt,
-			},
+			ID:      pointID,
+			Vector:  r.Vector,
+			Payload: payload,
 		}
 	}
 
@@ -201,6 +249,13 @@ func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) er
 	return nil
 }
 
+// uuidFromHash formats the first 16 bytes of a hex digest as a UUID string,
+// which is one of the two point-ID shapes Qdrant accepts.
+func uuidFromHash(hexDigest string) string {
+	h := hexDigest[:32]
+	return fmt.Sprintf("%s-%s-%s-%s-%s", h[0:8], h[8:12], h[12:16], h[16:20], h[20:32])
+}
+
 // ---------------------------------------------------------------------------
 // LogStore — stub for local dev (no Qdrant)
 // ---------------------------------------------------------------------------
@@ -224,6 +279,12 @@ func (s *LogStore) EnsureCollection(ctx context.Context) error {
 	return nil
 }
 
+// DeleteByFileKey is a no-op.
+func (s *LogStore) DeleteByFileKey(ctx context.Context, fileKey string) error {
+	s.logger.Printf("[stub] DeleteByFileKey(%q)", fileKey)
+	return nil
+}
+
 // SaveChunks logs metadata for each record.
 func (s *LogStore) SaveChunks(ctx context.Context, records []VectorRecord) error {
 	s.logger.Printf("[stub] SaveChunks: %d records", len(records))
@@ -232,8 +293,8 @@ func (s *LogStore) SaveChunks(ctx context.Context, records []VectorRecord) error
 		if r.Vector != nil {
 			vecLen = len(r.Vector)
 		}
-		s.logger.Printf("  [%d] hash=%s ext=%s chunk=%s vec_dim=%d",
-			i, truncHash(r.FileHash), r.FileExt, r.ChunkID, vecLen)
+		s.logger.Printf("  [%d] key=%s chunk=%s hash=%s vec_dim=%d",
+			i, r.FileKey, r.ChunkID, truncHash(r.FileHash), vecLen)
 	}
 	return nil
 }

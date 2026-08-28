@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -26,6 +27,12 @@ type Config struct {
 	MaxUploadBytes int64
 	Ready          func(context.Context) Readiness
 	Index          http.Handler
+	Logger         *slog.Logger
+
+	// Store and Notify wire this service into the pipeline. Without a Store,
+	// POST /api/v1/ingest reports 501 and the panel keeps working on its own.
+	Store  ObjectStore
+	Notify func(ctx context.Context, sourceKey string) error
 }
 
 type Readiness struct {
@@ -70,6 +77,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /readyz", s.ready)
 	s.mux.HandleFunc("GET /api/v1/inbox", s.listInbox)
 	s.mux.HandleFunc("POST /api/v1/transcriptions", s.upload)
+	s.mux.HandleFunc("POST /api/v1/ingest", s.ingest)
 	s.mux.HandleFunc("POST /api/v1/batches", s.createBatch)
 	s.mux.HandleFunc("GET /api/v1/transcriptions", s.listJobs)
 	s.mux.HandleFunc("GET /api/v1/transcriptions/{id}", s.getJob)

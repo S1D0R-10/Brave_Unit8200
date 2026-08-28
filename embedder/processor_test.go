@@ -35,8 +35,8 @@ func TestVersion(t *testing.T) {
 	if v == "" {
 		t.Fatal("Version() returned empty string")
 	}
-	if v != "0.1.0" {
-		t.Errorf("expected version 0.1.0, got %s", v)
+	if v != "0.2.0" {
+		t.Errorf("expected version 0.2.0, got %s", v)
 	}
 }
 

@@ -151,7 +151,7 @@ func buildSources(hits []SearchResult) []DraftSource {
 			Num:      i + 1,
 			Kind:     kindFromExt(h.FileExt),
 			Title:    h.Title,
-			Locator:  locatorFromChunk(h.ChunkID, h.FileExt),
+			Locator:  locatorFor(h),
 			DeepLink: "",
 			Match:    int(h.Score * 100),
 			excerpt:  h.Text,
@@ -178,27 +178,19 @@ func kindFromExt(ext string) string {
 	}
 }
 
-// locatorFromChunk describes where in the source document a chunk sits,
-// using the unit the chunker actually indexed by for that file type (word
-// offset for text, char offset for PDF, seconds for media) — never a
-// fabricated page number we don't actually know.
-func locatorFromChunk(chunkID, ext string) string {
-	start, end, err := DecodeChunkID(chunkID)
+// locatorFor describes where in the source document a chunk sits. For a
+// recording that is the timecode its transcript segment carries; for anything
+// else it is the byte range the chunk actually occupies in the indexed text
+// object — never a fabricated page number we don't actually know.
+func locatorFor(h SearchResult) string {
+	if h.Timecode != "" {
+		return h.Timecode
+	}
+	start, end, err := DecodeChunkID(h.ChunkID)
 	if err != nil {
 		return ""
 	}
-	switch strings.ToLower(ext) {
-	case ".pdf":
-		return fmt.Sprintf("znaki %d–%d", start, end)
-	case ".mp4", ".mp3", ".wav", ".webm", ".ogg":
-		return fmt.Sprintf("%s–%s", formatSecs(start), formatSecs(end))
-	default:
-		return fmt.Sprintf("słowa %d–%d", start, end)
-	}
-}
-
-func formatSecs(secs int64) string {
-	return fmt.Sprintf("%02d:%02d", secs/60, secs%60)
+	return fmt.Sprintf("bajty %d–%d", start, end)
 }
 
 // --- LLM generation ---

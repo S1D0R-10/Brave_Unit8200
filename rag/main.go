@@ -36,13 +36,30 @@ func main() {
 		Collection: "citations",
 	}
 
+	// The bucket is where chunk text actually lives: Qdrant holds byte offsets,
+	// rag-search reads the cited bytes back with a Range request.
+	s3Cfg := S3Config{
+		Endpoint:  envOrDefault("RAG_S3_ENDPOINT", "https://t3.storageapi.dev"),
+		Bucket:    envOrDefault("RAG_S3_BUCKET", "wiadro-xuw-on7mmw3fdswei6"),
+		Region:    envOrDefault("RAG_S3_REGION", "auto"),
+		AccessKey: os.Getenv("RAG_S3_ACCESS_KEY"),
+		SecretKey: os.Getenv("RAG_S3_SECRET_KEY"),
+	}
+
 	noCoverageThreshold := envOrFloat("RAG_NO_COVERAGE_THRESHOLD", 0.5)
 	topK := envOrInt("RAG_DRAFT_TOP_K", 5)
+
+	storage, err := NewS3Storage(s3Cfg, logger)
+	if err != nil {
+		logger.Fatalf("failed to create S3 storage: %v", err)
+	}
 
 	embedder := NewEmbedder(embedCfg, logger)
 	qdrant := NewQdrantClient(qdrantCfg, logger)
 	chat := NewChatClient(chatCfg, logger)
-	service := NewService(logger, embedder, qdrant)
+	service := NewService(logger, embedder, qdrant, storage, ServiceConfig{
+		MaxQuoteBytes: int64(envOrInt("RAG_MAX_QUOTE_BYTES", 8000)),
+	})
 	draftService := NewDraftService(logger, service, chat, noCoverageThreshold, topK)
 	store := NewStore(logger, qdrant)
 	handler := NewHandler(service, draftService, store, logger)
@@ -60,6 +77,7 @@ func main() {
 	logger.Printf("Embed: %s model=%s", embedCfg.Endpoint, embedCfg.Model)
 	logger.Printf("Chat: %s model=%s", chatCfg.Endpoint, chatCfg.Model)
 	logger.Printf("Qdrant: %s:%d", qdrantCfg.Host, qdrantCfg.Port)
+	logger.Printf("S3: %s/%s", s3Cfg.Endpoint, s3Cfg.Bucket)
 
 	if err := http.ListenAndServe(addr, withCORS(mux)); err != nil {
 		logger.Fatalf("server error: %v", err)

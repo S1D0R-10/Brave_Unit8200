@@ -27,7 +27,6 @@ func main() {
 	chunkerCfg := ChunkerConfig{
 		WordsPerChunk: envOrInt("RAG_CHUNK_WORDS", 500),
 		SecsPerChunk:  int64(envOrInt("RAG_CHUNK_SECS", 300)),
-		CharsPerChunk: envOrInt("RAG_CHUNK_CHARS", 3000),
 	}
 
 	embedCfg := EmbedderConfig{
@@ -77,8 +76,7 @@ func main() {
 	logger.Printf("Embedder v%s starting on %s", processor.Version(), addr)
 	logger.Printf("S3: %s/%s", s3Cfg.Endpoint, s3Cfg.Bucket)
 	logger.Printf("Embed: %s model=%s dim=%d", embedCfg.Endpoint, embedCfg.Model, embedCfg.Dim)
-	logger.Printf("Chunks: words=%d secs=%d chars=%d",
-		chunkerCfg.WordsPerChunk, chunkerCfg.SecsPerChunk, chunkerCfg.CharsPerChunk)
+	logger.Printf("Chunks: words=%d secs=%d", chunkerCfg.WordsPerChunk, chunkerCfg.SecsPerChunk)
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		logger.Fatalf("server error: %v", err)

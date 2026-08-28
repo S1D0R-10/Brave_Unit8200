@@ -293,15 +293,16 @@ func (q *QdrantClient) ScrollCollection(ctx context.Context, collection string, 
 	}
 }
 
-// GetChunksByFile fetches all point metadata (payloads) for a given file_hash.
-func (q *QdrantClient) GetChunksByFile(ctx context.Context, fileHash string) ([]ScoredPoint, error) {
-	// Qdrant scroll request filtering by file_hash
+// GetChunksByFileKey fetches all point metadata (payloads) for one text object.
+// Grouping by file_key rather than file_hash matters because the byte offsets
+// in a chunk_id are only meaningful against that exact object.
+func (q *QdrantClient) GetChunksByFileKey(ctx context.Context, fileKey string) ([]ScoredPoint, error) {
 	body := scrollRequest{
 		Filter: filterClause{
 			Must: []matchCondition{
 				{
-					Key:   "file_hash",
-					Match: matchString{Value: fileHash},
+					Key:   "file_key",
+					Match: matchString{Value: fileKey},
 				},
 			},
 		},
