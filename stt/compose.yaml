@@ -1,0 +1,22 @@
+services:
+  stt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: brave-stt-go:1.0
+    init: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      STT_DATA_DIR: /data
+      STT_MODEL_PATH: /models/ggml-large-v3-turbo-q5_0.bin
+      STT_MAX_WORKERS: "1"
+      STT_INITIAL_WORKERS: "1"
+      STT_THREADS: "4"
+      STT_MIN_FREE_BYTES: "536870912"
+    volumes:
+      - ./data/inbox:/data/inbox:ro
+      - ./data/work:/data/work
+      - ./data/output:/data/output
+    restart: unless-stopped
+    stop_grace_period: 30s
