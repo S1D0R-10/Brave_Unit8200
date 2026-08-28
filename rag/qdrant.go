@@ -87,6 +87,12 @@ func (q *QdrantClient) Search(ctx context.Context, vector []float32, limit int) 
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		// The citations collection doesn't exist yet — nothing has been
+		// ingested. That's "no results", not an error.
+		q.logger.Printf("[qdrant] collection %q doesn't exist yet", q.collection)
+		return nil, nil
+	}
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("search API returned %d: %s", resp.StatusCode, string(respBody))
