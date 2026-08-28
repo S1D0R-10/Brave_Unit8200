@@ -20,9 +20,12 @@ export async function GET() {
     const response = await s3.send(command);
     const objects = response.Contents || [];
 
+    // Uploads are stored as "<uuid v4>-<original name>"; show the original name.
+    const UUID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
+
     const documents = objects.map(obj => ({
       key: obj.Key,
-      name: obj.Key?.split('-').slice(1).join('-') || obj.Key || "Unknown",
+      name: obj.Key?.replace(UUID_PREFIX, "") || obj.Key || "Unknown",
       kind: obj.Key?.split('.').pop()?.toUpperCase() || "FILE",
       accent: "yellow", // default accent
       added: obj.LastModified ? new Date(obj.LastModified).toLocaleDateString("pl-PL") : "Unknown",
