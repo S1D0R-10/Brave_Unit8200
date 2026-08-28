@@ -101,7 +101,7 @@ export function AnswerView({ question, answerId, sentences, sources }: AnswerVie
                   )}
                   {sentence.quote && activeRef !== 0 && ref === activeRef && (
                     <div className="moonka-answer__sentence-quote">
-                      "{sentence.quote}"
+                      &quot;{sentence.quote}&quot;
                     </div>
                   )}
                 </p>

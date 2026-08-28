@@ -34,8 +34,8 @@ export function ChunksDrawer({ doc, onClose }: ChunksDrawerProps) {
         }
         const data = await res.json();
         setChunks(data.chunks || []);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
