@@ -1,0 +1,109 @@
+[data-accent="yellow"] {
+  --accent: var(--color-yellow);
+  --accent-fg: var(--color-ink);
+}
+[data-accent="pink"] {
+  --accent: var(--color-pink);
+  --accent-fg: var(--color-paper);
+}
+[data-accent="cyan"] {
+  --accent: var(--color-cyan);
+  --accent-fg: var(--color-ink);
+}
+[data-accent="lime"] {
+  --accent: var(--color-lime);
+  --accent-fg: var(--color-ink);
+}
+[data-accent="violet"] {
+  --accent: var(--color-violet);
+  --accent-fg: var(--color-ink);
+}
+[data-accent="paper"] {
+  --accent: var(--color-paper);
+  --accent-fg: var(--color-ink);
+}
+
+.moonka-shell {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: 100vh;
+  background: var(--color-bg);
+  background-image: radial-gradient(#12100e14 1px, transparent 1px);
+  background-size: 5px 5px;
+}
+
+.moonka-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 2px solid var(--color-ink);
+  background: var(--accent, var(--color-paper));
+  color: var(--accent-fg, var(--color-ink));
+  font-family: var(--font-display);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.moonka-btn {
+  cursor: pointer;
+  border: var(--border-width) solid var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.moonka-btn-loud {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+}
+
+.moonka-torn-frame {
+  position: relative;
+}
+
+.moonka-torn-frame::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  background: var(--color-paper);
+  border: var(--border-width-lg) solid var(--color-ink);
+  filter: url(#torn);
+}
+
+.moonka-torn-frame--tight::before {
+  inset: -6px;
+}
+
+.moonka-torn-frame--dark::before {
+  background: var(--color-pink);
+  filter: url(#torn2);
+}
+
+.moonka-torn-frame > * {
+  position: relative;
+}
+
+.moonka-eyebrow {
+  align-self: flex-start;
+  border: var(--border-width) solid var(--color-ink);
+  padding: 4px 11px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.moonka-section-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.moonka-scrollpane {
+  overflow: auto;
+}
+
+.moonka-divider {
+  height: 4px;
+  background: var(--color-ink);
+}

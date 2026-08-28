@@ -1,0 +1,63 @@
+.moonka-history {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 34px 40px;
+  max-width: 1000px;
+}
+
+.moonka-history__title {
+  font-size: 36px;
+}
+
+.moonka-history__subtitle {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.moonka-history__row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 15px 16px;
+  cursor: pointer;
+  background: var(--color-paper);
+  border: var(--border-width) solid var(--color-ink);
+  box-shadow: 6px 6px 0 var(--color-ink);
+}
+
+.moonka-history__avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 12px;
+  border: var(--border-width) solid var(--color-ink);
+  background: var(--accent, var(--color-paper));
+}
+
+.moonka-history__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.moonka-history__question {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.moonka-history__meta {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.65;
+}
+
+.moonka-history__status {
+  flex: none;
+}

@@ -1,0 +1,23 @@
+.moonka-thinking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 18px;
+}
+
+.moonka-thinking__pulse {
+  width: 56px;
+  height: 56px;
+  background: var(--color-pink);
+  border: var(--border-width-lg) solid var(--color-ink);
+  animation: nb-pulse 0.7s ease-in-out infinite;
+}
+
+.moonka-thinking__label {
+  font-family: var(--font-display);
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

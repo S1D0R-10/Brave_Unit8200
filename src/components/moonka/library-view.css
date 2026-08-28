@@ -1,0 +1,129 @@
+.moonka-library {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 34px 40px;
+}
+
+.moonka-library__header {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.moonka-library__heading {
+  flex: 1;
+  min-width: 280px;
+}
+
+.moonka-library__title {
+  font-size: 36px;
+}
+
+.moonka-library__subtitle {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.moonka-library__search {
+  width: 220px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--color-paper);
+  border: var(--border-width) solid var(--color-ink);
+}
+
+.moonka-library__upload {
+  padding: 11px 16px;
+  background: var(--color-lime);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  font-size: 13px;
+}
+
+.moonka-library__dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px;
+  border: 4px dashed var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--color-paper);
+  text-align: center;
+}
+
+.moonka-library__table {
+  border: var(--border-width-lg) solid var(--color-ink);
+  background: var(--color-paper);
+  overflow-x: auto;
+}
+
+.moonka-library__row {
+  display: grid;
+  grid-template-columns: 1fr 110px 110px 90px 150px 80px;
+  min-width: 640px;
+  border-top: var(--border-width) solid var(--color-ink);
+  background: var(--color-paper);
+}
+
+.moonka-library__row:first-child {
+  border-top: 0;
+}
+
+.moonka-library__row[data-odd="true"] {
+  background: var(--color-bg-alt);
+}
+
+.moonka-library__row--head {
+  border-top: 0;
+  background: var(--color-ink);
+  color: var(--color-yellow);
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.moonka-library__cell {
+  padding: 11px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.moonka-library__row--head .moonka-library__cell {
+  padding: 10px 12px;
+}
+
+.moonka-library__cell--name {
+  cursor: pointer;
+}
+
+.moonka-library__cell--added {
+  font-size: 12.5px;
+  font-weight: 700;
+  opacity: 0.65;
+}
+
+.moonka-library__cell--uses {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.moonka-library__cell--status {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.moonka-library__remove {
+  background: transparent;
+  border: 2px solid var(--color-ink);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
