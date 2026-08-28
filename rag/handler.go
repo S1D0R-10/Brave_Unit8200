@@ -197,6 +197,25 @@ func (h *Handler) HandleHandoff(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// HandleKbFiles lists the source documents actually present in the index.
+//
+// GET /kb/files
+func (h *Handler) HandleKbFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.writeError(w, http.StatusMethodNotAllowed, "only GET is allowed")
+		return
+	}
+
+	files, err := h.store.KbFiles(r.Context())
+	if err != nil {
+		h.logger.Printf("KbFiles failed: %v", err)
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{"files": files})
+}
+
 // HandleKbStats reports how many source documents are indexed and when the
 // most recent one was ingested.
 //

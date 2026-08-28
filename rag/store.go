@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 )
 
@@ -70,6 +71,51 @@ func (s *Store) SaveHandoff(ctx context.Context, answerID, question, to string, 
 type KbStats struct {
 	DocCount int    `json:"docCount"`
 	SyncedAt string `json:"syncedAt"`
+}
+
+// KbFile is one distinct source document present in the index.
+type KbFile struct {
+	Key       string `json:"key"`
+	IndexedAt string `json:"indexedAt,omitempty"`
+}
+
+// KbFiles lists the source documents actually present in the index, so the
+// web app can show a truthful per-file status instead of assuming everything
+// in the bucket has been indexed.
+func (s *Store) KbFiles(ctx context.Context) ([]KbFile, error) {
+	latest := make(map[string]time.Time)
+
+	err := s.qdrant.ScrollCollection(ctx, citationsCollection, func(p ScoredPoint) {
+		key, _ := p.Payload["source_key"].(string)
+		if key == "" {
+			// Points from before source_key existed: fall back to the text object.
+			key, _ = p.Payload["file_key"].(string)
+		}
+		if key == "" {
+			return
+		}
+		ts := latest[key]
+		if raw, ok := p.Payload["indexed_at"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339, raw); err == nil && parsed.After(ts) {
+				ts = parsed
+			}
+		}
+		latest[key] = ts
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scanning citations: %w", err)
+	}
+
+	files := make([]KbFile, 0, len(latest))
+	for key, ts := range latest {
+		file := KbFile{Key: key}
+		if !ts.IsZero() {
+			file.IndexedAt = ts.Format(time.RFC3339)
+		}
+		files = append(files, file)
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Key < files[j].Key })
+	return files, nil
 }
 
 func (s *Store) KbStats(ctx context.Context) (*KbStats, error) {
