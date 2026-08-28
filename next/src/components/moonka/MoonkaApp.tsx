@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { View, DocRow } from "@/lib/moonka-data";
+import type { DraftResult } from "@/lib/draft";
 import { TornPaperFilters } from "./TornPaperFilters";
 import { Sidebar } from "./Sidebar";
 import { AskView } from "./AskView";
@@ -21,7 +22,10 @@ export function MoonkaApp() {
   const [view, setView] = useState<View>("empty");
   const [docNumber, setDocNumber] = useState<number | null>(null);
   const [docs, setDocs] = useState<DocRow[]>([]);
-  const thinkingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [question, setQuestion] = useState("");
+  const [draft, setDraft] = useState<DraftResult | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
+  const askAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch("/api/documents")
@@ -33,9 +37,7 @@ export function MoonkaApp() {
       })
       .catch(err => console.error("Failed to fetch documents", err));
 
-    return () => {
-      if (thinkingTimeout.current) clearTimeout(thinkingTimeout.current);
-    };
+    return () => askAbort.current?.abort();
   }, []);
 
   const navigate = (nextView: View) => {
@@ -43,9 +45,38 @@ export function MoonkaApp() {
     setDocNumber(null);
   };
 
-  const runAnswer = () => {
+  const runAnswer = async (asked: string) => {
+    const trimmed = asked.trim();
+    if (trimmed === "") return;
+
+    setQuestion(asked);
+    setAskError(null);
     setView("thinking");
-    thinkingTimeout.current = setTimeout(() => setView("answer"), 800);
+
+    askAbort.current?.abort();
+    const controller = new AbortController();
+    askAbort.current = controller;
+
+    try {
+      const response = await fetch("/api/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: trimmed }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(`/api/draft returned ${response.status}`);
+      }
+
+      const result: DraftResult = await response.json();
+      setDraft(result);
+      setView(result.status === "answer" ? "answer" : "noanswer");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.error("Draft request failed:", error);
+      setAskError("Nie udało się przygotować szkicu — spróbuj jeszcze raz.");
+      setView("empty");
+    }
   };
 
   const activeNavId = ASK_FAMILY_VIEWS.includes(view) ? "ask" : view;
@@ -58,13 +89,31 @@ export function MoonkaApp() {
 
       <main className="moonka-main">
         {view === "empty" && (
-          <AskView onAsk={runAnswer} onAskNoAnswer={() => navigate("noanswer")} />
+          <AskView
+            question={question}
+            onQuestionChange={setQuestion}
+            onAsk={runAnswer}
+            error={askError}
+          />
         )}
-        {view === "thinking" && <ThinkingView />}
-        {view === "answer" && (
-          <AnswerView onOpenDoc={setDocNumber} onGoHistory={() => navigate("history")} />
+        {view === "thinking" && <ThinkingView docCount={docs.length} />}
+        {view === "answer" && draft?.status === "answer" && (
+          <AnswerView
+            question={question}
+            answerId={draft.answerId}
+            sentences={draft.sentences ?? []}
+            sources={draft.sources ?? []}
+          />
         )}
-        {view === "noanswer" && <NoAnswerView onGoLibrary={() => navigate("library")} />}
+        {view === "noanswer" && (
+          <NoAnswerView
+            question={question}
+            blocked={draft?.status === "blocked"}
+            nearMisses={draft?.nearMisses ?? []}
+            docCount={docs.length}
+            onGoLibrary={() => navigate("library")}
+          />
+        )}
         {view === "library" && <LibraryView onOpenDoc={setDocNumber} docs={docs} setDocs={setDocs} />}
         {view === "history" && <HistoryView />}
         {view === "settings" && <SettingsView />}

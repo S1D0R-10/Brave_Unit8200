@@ -36,6 +36,16 @@
   text-wrap: pretty;
 }
 
+.moonka-ask__error {
+  max-width: 700px;
+  padding: 12px 15px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--color-pink-tint);
+  border: var(--border-width) solid var(--color-ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-pink);
+}
+
 .moonka-ask__composer-frame {
   max-width: 700px;
 }
