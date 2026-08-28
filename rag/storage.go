@@ -54,13 +54,38 @@ func NewS3Storage(cfg S3Config, logger *log.Logger) (*S3Storage, error) {
 	}, nil
 }
 
+// objectURL builds the path-style URL for key with the key percent-encoded.
+// Keys come straight from user file names, so they can contain "#", spaces or
+// non-ASCII bytes — sent raw, "#" would truncate the path into a fragment.
+func (s *S3Storage) objectURL(key string) string {
+	return fmt.Sprintf("%s/%s/%s", s.endpoint, s.bucket, s3EncodeKey(key))
+}
+
+// s3EncodeKey percent-encodes an object key for a URL path following the AWS
+// SigV4 canonical-URI rules: every byte except unreserved characters is
+// encoded, and "/" keeps separating segments.
+func s3EncodeKey(key string) string {
+	var b strings.Builder
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9',
+			c == '-', c == '.', c == '_', c == '~', c == '/':
+			b.WriteByte(c)
+		default:
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
+}
+
 // FetchRange returns bytes [start, end] (both inclusive) of the object at key.
 func (s *S3Storage) FetchRange(ctx context.Context, key string, start, end int64) ([]byte, error) {
 	if start < 0 || end < start {
 		return nil, fmt.Errorf("invalid byte range %d-%d for %q", start, end, key)
 	}
 
-	url := fmt.Sprintf("%s/%s/%s", s.endpoint, s.bucket, key)
+	url := s.objectURL(key)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

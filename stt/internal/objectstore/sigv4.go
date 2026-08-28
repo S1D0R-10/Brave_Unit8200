@@ -21,8 +21,9 @@ func sign(req *http.Request, accessKey, secretKey, region, service string) {
 	req.Header.Set("x-amz-date", amzdate)
 	req.Header.Set("x-amz-content-sha256", payloadHash(req))
 
-	// 1. Canonical request.
-	canonicalURI := req.URL.Path
+	// 1. Canonical request. The canonical URI must be the percent-encoded path
+	// exactly as it goes on the wire, so sign EscapedPath, not the decoded Path.
+	canonicalURI := req.URL.EscapedPath()
 	if canonicalURI == "" {
 		canonicalURI = "/"
 	}

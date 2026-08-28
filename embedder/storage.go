@@ -55,12 +55,36 @@ func NewS3Storage(cfg S3Config, logger *log.Logger) (*S3Storage, error) {
 	}, nil
 }
 
+// objectURL builds the path-style URL for key with the key percent-encoded.
+// Keys come straight from user file names, so they can contain "#", spaces or
+// non-ASCII bytes — sent raw, "#" would truncate the path into a fragment.
+func (s *S3Storage) objectURL(key string) string {
+	return fmt.Sprintf("%s/%s/%s", s.endpoint, s.bucket, s3EncodeKey(key))
+}
+
+// s3EncodeKey percent-encodes an object key for a URL path following the AWS
+// SigV4 canonical-URI rules: every byte except unreserved characters is
+// encoded, and "/" keeps separating segments.
+func s3EncodeKey(key string) string {
+	var b strings.Builder
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9',
+			c == '-', c == '.', c == '_', c == '~', c == '/':
+			b.WriteByte(c)
+		default:
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
+}
+
 // Download fetches the object identified by key from the bucket.
 func (s *S3Storage) Download(ctx context.Context, key string) ([]byte, error) {
 	s.logger.Printf("downloading s3://%s/%s", s.bucket, key)
 
-	// Path-style URL: https://endpoint/bucket/key
-	url := fmt.Sprintf("%s/%s/%s", s.endpoint, s.bucket, key)
+	url := s.objectURL(key)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -94,7 +118,7 @@ func (s *S3Storage) Download(ctx context.Context, key string) ([]byte, error) {
 func (s *S3Storage) Upload(ctx context.Context, key string, data []byte, contentType string) error {
 	s.logger.Printf("uploading %d bytes to s3://%s/%s", len(data), s.bucket, key)
 
-	url := fmt.Sprintf("%s/%s/%s", s.endpoint, s.bucket, key)
+	url := s.objectURL(key)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(data))
 	if err != nil {

@@ -42,8 +42,29 @@ func New(config Config) (*Client, error) {
 // Bucket returns the configured bucket name.
 func (c *Client) Bucket() string { return c.config.Bucket }
 
+// objectURL builds the path-style URL for key with the key percent-encoded.
+// Keys come straight from user file names, so they can contain "#", spaces or
+// non-ASCII bytes — sent raw, "#" would truncate the path into a fragment.
 func (c *Client) objectURL(key string) string {
-	return fmt.Sprintf("%s/%s/%s", c.config.Endpoint, c.config.Bucket, key)
+	return fmt.Sprintf("%s/%s/%s", c.config.Endpoint, c.config.Bucket, encodeKey(key))
+}
+
+// encodeKey percent-encodes an object key for a URL path following the AWS
+// SigV4 canonical-URI rules: every byte except unreserved characters is
+// encoded, and "/" keeps separating segments.
+func encodeKey(key string) string {
+	var b strings.Builder
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9',
+			c == '-', c == '.', c == '_', c == '~', c == '/':
+			b.WriteByte(c)
+		default:
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
 }
 
 // DownloadTo streams the object at key into a local file. Recordings run to
