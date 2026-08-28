@@ -32,6 +32,15 @@ type Config struct {
 	CalibrationDuration time.Duration
 	GPUHeadroomMiB      int64
 	MinimumFreeBytes    uint64
+
+	// Pipeline wiring. The RAG_S3_* names are shared with the embedder and
+	// rag-search so all three services read one set of bucket credentials.
+	S3Endpoint  string
+	S3Bucket    string
+	S3Region    string
+	S3AccessKey string
+	S3SecretKey string
+	EmbedderURL string
 }
 
 func Load() (Config, error) {
@@ -46,6 +55,12 @@ func Load() (Config, error) {
 		Threads: max(1, runtime.NumCPU()/2), MaxUploadBytes: 3 * 1024 * 1024 * 1024, MaxQueue: 20,
 		MaxWorkers: 2, InitialWorkers: 1, Retention: 24 * time.Hour, CalibrationDuration: 5 * time.Minute,
 		GPUHeadroomMiB: 1024, MinimumFreeBytes: 1 * 1024 * 1024 * 1024,
+		S3Endpoint:  env("RAG_S3_ENDPOINT", "https://t3.storageapi.dev"),
+		S3Bucket:    os.Getenv("RAG_S3_BUCKET"),
+		S3Region:    env("RAG_S3_REGION", "auto"),
+		S3AccessKey: os.Getenv("RAG_S3_ACCESS_KEY"),
+		S3SecretKey: os.Getenv("RAG_S3_SECRET_KEY"),
+		EmbedderURL: os.Getenv("EMBEDDER_URL"),
 	}
 	var err error
 	if minFree, minErr := envInt64("STT_MIN_FREE_BYTES", int64(config.MinimumFreeBytes)); minErr != nil {

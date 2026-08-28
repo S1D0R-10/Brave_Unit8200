@@ -10,9 +10,15 @@ interface LibraryViewProps {
   setDocs: React.Dispatch<React.SetStateAction<DocRow[]>>;
 }
 
+// Recordings take the long way round: stt first, the embedder afterwards.
+const isRecording = (name: string) => name.toLowerCase().endsWith(".mp4");
+
 export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const setStatus = (name: string, status: string) =>
+    setDocs((prev) => prev.map((doc) => (doc.name === name ? { ...doc, status } : doc)));
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -38,7 +44,7 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
         });
 
         if (!res.ok) throw new Error("Failed to get presigned URL");
-        const { url } = await res.json();
+        const { url, key } = await res.json();
 
         const uploadRes = await fetch(url, {
           method: "PUT",
@@ -48,14 +54,29 @@ export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
 
         if (!uploadRes.ok) throw new Error("Upload to S3 failed");
 
-        setDocs((prev) =>
-          prev.map((doc) => (doc.name === file.name ? { ...doc, status: "Wgrano do S3" } : doc))
-        );
+        // The file is in the bucket, but nothing has read it yet. /api/ingest
+        // is what actually starts the pipeline — transcription for recordings,
+        // indexing for documents.
+        setStatus(file.name, isRecording(file.name) ? "Transkrypcja…" : "Indeksowanie…");
+
+        const ingestRes = await fetch("/api/ingest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key }),
+        });
+
+        if (!ingestRes.ok) {
+          const { error } = await ingestRes.json().catch(() => ({ error: "" }));
+          throw new Error(error || "Ingest failed");
+        }
+
+        const { status } = await ingestRes.json();
+        // A recording is only queued here; its transcript reaches the index
+        // minutes later, without the browser waiting around for it.
+        setStatus(file.name, status === "transcribing" ? "W transkrypcji" : "Zindeksowany");
       } catch (error) {
         console.error("Upload error:", error);
-        setDocs((prev) =>
-          prev.map((doc) => (doc.name === file.name ? { ...doc, status: "Błąd wgrania" } : doc))
-        );
+        setStatus(file.name, "Błąd wgrania");
       }
     }
     

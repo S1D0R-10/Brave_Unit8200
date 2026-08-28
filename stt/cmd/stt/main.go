@@ -13,6 +13,8 @@ import (
 	"brave/stt/internal/api"
 	"brave/stt/internal/config"
 	"brave/stt/internal/health"
+	"brave/stt/internal/objectstore"
+	"brave/stt/internal/pipeline"
 	"brave/stt/internal/transcription"
 )
 
@@ -59,10 +61,30 @@ func main() {
 		Binaries:         []string{cfg.FFprobeBinary, cfg.FFmpegBinary, cfg.WhisperBinary},
 		MinimumFreeBytes: cfg.MinimumFreeBytes,
 	}, backend, nil)
-	apiServer := api.NewServer(manager, api.Config{
+	// Pipeline wiring is optional: without bucket credentials the panel and
+	// the upload endpoints keep working, only /api/v1/ingest goes dark.
+	apiConfig := api.Config{
 		InboxDir: cfg.InboxDir, WorkDir: cfg.WorkDir, OutputDir: cfg.OutputDir,
 		MaxUploadBytes: cfg.MaxUploadBytes, Ready: checker.Check, Index: api.IndexHandler(),
-	})
+		Logger: logger,
+	}
+	if store, storeErr := objectstore.New(objectstore.Config{
+		Endpoint: cfg.S3Endpoint, Bucket: cfg.S3Bucket, Region: cfg.S3Region,
+		AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey,
+	}); storeErr != nil {
+		logger.Warn("object store not configured, /api/v1/ingest is disabled", "error", storeErr)
+	} else {
+		apiConfig.Store = store
+		logger.Info("object store ready", "endpoint", cfg.S3Endpoint, "bucket", cfg.S3Bucket)
+	}
+	if notifier := pipeline.NewEmbedderNotifier(cfg.EmbedderURL); notifier != nil {
+		apiConfig.Notify = notifier.Notify
+		logger.Info("embedder handoff ready", "url", cfg.EmbedderURL)
+	} else {
+		logger.Warn("EMBEDDER_URL not set, transcripts will be uploaded but not indexed")
+	}
+
+	apiServer := api.NewServer(manager, apiConfig)
 	httpServer := &http.Server{
 		Addr: cfg.Address, Handler: apiServer.Handler(),
 		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute,

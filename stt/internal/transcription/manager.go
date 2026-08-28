@@ -67,6 +67,7 @@ type Job struct {
 	deleteInput bool
 	retryCount  int
 	cancel      context.CancelFunc
+	onFinish    func(Job)
 }
 
 type EnqueueRequest struct {
@@ -76,6 +77,12 @@ type EnqueueRequest struct {
 	SourcePath  string
 	OutputRoot  string
 	DeleteInput bool
+
+	// OnFinish, when set, is called once with the final job — succeeded,
+	// failed or otherwise — on its own goroutine. The bucket ingest path uses
+	// it to push the transcript back and hand the file on to the embedder,
+	// which is what keeps the pipeline moving without anyone polling.
+	OnFinish func(Job)
 }
 
 type RunRequest struct {
@@ -215,6 +222,7 @@ func (m *Manager) Enqueue(request EnqueueRequest) (Job, error) {
 		Source:    SourceInfo{FileName: request.FileName, SizeBytes: request.SizeBytes},
 		CreatedAt: time.Now().UTC(), sourcePath: request.SourcePath,
 		outputDir: request.OutputRoot + stringPathSeparator() + id, deleteInput: request.DeleteInput,
+		onFinish: request.OnFinish,
 	}
 	m.mu.Lock()
 	m.jobs[id] = job
@@ -388,9 +396,9 @@ func (m *Manager) run(id string) {
 	}
 	cancel()
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	job, ok = m.jobs[id]
 	if !ok || job.Status == StatusCanceled {
+		m.mu.Unlock()
 		return
 	}
 	finished := time.Now().UTC()
@@ -401,15 +409,22 @@ func (m *Manager) run(id string) {
 		job.Progress.Stage = StageDone
 		job.Progress.ETASeconds = nil
 		job.Error = &JobError{Code: runnerErrorCode(err), Message: err.Error()}
-		return
+	} else {
+		job.Status = StatusSucceeded
+		job.Progress.Stage = StageDone
+		job.Progress.Percent = 100
+		job.Progress.ETASeconds = nil
+		job.Result = &output.Result
+		job.Source = output.Result.Source
+		job.Artifacts = &output.Artifacts
 	}
-	job.Status = StatusSucceeded
-	job.Progress.Stage = StageDone
-	job.Progress.Percent = 100
-	job.Progress.ETASeconds = nil
-	job.Result = &output.Result
-	job.Source = output.Result.Source
-	job.Artifacts = &output.Artifacts
+	finishedView := cloneJob(job)
+	hook := job.onFinish
+	m.mu.Unlock()
+
+	if hook != nil {
+		go hook(finishedView)
+	}
 }
 
 func (m *Manager) updateProgress(id string, update ProgressUpdate) {
