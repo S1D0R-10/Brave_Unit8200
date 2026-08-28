@@ -1,0 +1,306 @@
+/* [project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/answer-view.css [app-client] (css) */
+.moonka-answer {
+  flex: 1;
+  grid-template-columns: 1fr 380px;
+  min-height: 0;
+  display: grid;
+}
+
+.moonka-answer__draft {
+  flex-direction: column;
+  gap: 22px;
+  padding: 34px 40px 48px;
+  display: flex;
+}
+
+.moonka-answer__question {
+  flex-direction: column;
+  gap: 12px;
+  display: flex;
+}
+
+.moonka-answer__question-meta {
+  align-items: center;
+  gap: 10px;
+  display: flex;
+}
+
+.moonka-answer__question-time {
+  opacity: .55;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.moonka-answer__question-text {
+  max-width: 26ch;
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 1.32;
+  font-family: var(--font-display);
+  letter-spacing: -.02em;
+  margin: 0;
+}
+
+.moonka-answer__similar {
+  background: var(--color-lime);
+  border: var(--border-width) solid var(--color-ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  display: flex;
+}
+
+.moonka-answer__similar-icon {
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.moonka-answer__similar-text {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.moonka-answer__similar-action {
+  background: var(--color-ink);
+  color: var(--color-lime);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 0;
+  padding: 6px 11px;
+  font-size: 11px;
+}
+
+.moonka-answer__draft-heading {
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  display: flex;
+}
+
+.moonka-answer__draft-title {
+  font-size: 30px;
+}
+
+.moonka-answer__draft-badge {
+  background: var(--color-yellow);
+  border: 2px solid var(--color-ink);
+  padding: 2px 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.moonka-answer__draft-frame {
+  max-width: 70ch;
+}
+
+.moonka-answer__draft-body {
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 20px;
+  font-size: 16px;
+  line-height: 1.66;
+  display: flex;
+}
+
+.moonka-answer__sentence {
+  border: var(--border-width) solid transparent;
+  background: none;
+  margin: 0;
+  padding: 7px 10px;
+}
+
+.moonka-answer__sentence[data-active="true"] {
+  background: var(--color-yellow);
+  border-color: var(--color-ink);
+}
+
+.moonka-answer__sentence[data-weak="true"] {
+  border-left: 7px solid var(--color-pink);
+}
+
+.moonka-answer__sentence-ref {
+  vertical-align: super;
+  font-family: var(--font-display);
+  border: 2px solid var(--color-ink);
+  background: var(--color-pink);
+  color: var(--color-paper);
+  cursor: pointer;
+  margin-left: 5px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.moonka-answer__sentence-warning {
+  font-family: var(--font-display);
+  letter-spacing: .05em;
+  color: var(--color-pink);
+  margin-top: 6px;
+  font-size: 10.5px;
+  display: block;
+}
+
+.moonka-answer__actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  display: flex;
+}
+
+.moonka-answer__action {
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  background: var(--accent, var(--color-paper));
+  letter-spacing: .02em;
+  padding: 11px 15px;
+  font-size: 12.5px;
+}
+
+.moonka-answer__actions-spacer {
+  flex: 1;
+}
+
+.moonka-answer__vote {
+  border: var(--border-width) solid var(--color-ink);
+  width: 44px;
+  height: 44px;
+  box-shadow: 4px 4px 0 var(--color-ink);
+  cursor: pointer;
+  background: var(--accent, var(--color-paper));
+  font-size: 17px;
+}
+
+.moonka-answer__disclaimer {
+  background: var(--color-ink);
+  color: var(--color-bg);
+  border: var(--border-width) solid var(--color-ink);
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 70ch;
+  padding: 14px 16px;
+  display: flex;
+}
+
+.moonka-answer__disclaimer-mark {
+  font-family: var(--font-display);
+  color: var(--color-yellow);
+  font-size: 18px;
+}
+
+.moonka-answer__disclaimer-text {
+  text-wrap: pretty;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.moonka-answer__sources {
+  background: var(--color-violet);
+  border-left: var(--border-width-lg) solid var(--color-ink);
+  flex-direction: column;
+  gap: 14px;
+  padding: 30px 22px;
+  display: flex;
+}
+
+.moonka-answer__sources-heading {
+  color: var(--color-paper);
+  justify-content: space-between;
+  align-items: baseline;
+  display: flex;
+}
+
+.moonka-answer__sources-title {
+  font-size: 22px;
+}
+
+.moonka-answer__sources-hint {
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moonka-answer__source {
+  cursor: pointer;
+  background: var(--color-paper);
+  border: var(--border-width) solid var(--color-ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px;
+  display: flex;
+  transform: translate(0);
+}
+
+.moonka-answer__source[data-active="true"] {
+  box-shadow: 7px 7px 0 var(--color-yellow);
+  transform: translate(-2px, -2px);
+}
+
+.moonka-answer__source-top {
+  align-items: center;
+  gap: 8px;
+  display: flex;
+}
+
+.moonka-answer__source-num {
+  width: 22px;
+  height: 22px;
+  font-family: var(--font-display);
+  background: var(--color-ink);
+  color: var(--color-yellow);
+  place-items: center;
+  font-size: 12px;
+  display: grid;
+}
+
+.moonka-answer__source-match {
+  opacity: .6;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moonka-answer__source-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.moonka-answer__source-locator {
+  opacity: .7;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.moonka-answer__source-quote {
+  background: var(--color-bg);
+  border: 2px solid var(--color-ink);
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.moonka-answer__sources-divider {
+  margin: 4px 0;
+}
+
+.moonka-answer__unused {
+  color: var(--color-paper);
+  flex-direction: column;
+  gap: 6px;
+  display: flex;
+}
+
+.moonka-answer__unused-label {
+  font-size: 10.5px;
+}
+
+.moonka-answer__unused-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/*# sourceMappingURL=Desktop_Repos_Brave_Unit8200_next_src_components_moonka_answer-view_css_bad6b30c._.single.css.map*/

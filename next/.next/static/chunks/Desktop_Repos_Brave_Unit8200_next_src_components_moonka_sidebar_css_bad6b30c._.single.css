@@ -1,0 +1,168 @@
+/* [project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/sidebar.css [app-client] (css) */
+.moonka-sidebar {
+  background: var(--color-yellow);
+  border-right: var(--border-width-lg) solid var(--color-ink);
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px 16px;
+  display: flex;
+}
+
+.moonka-sidebar__brand {
+  align-items: center;
+  gap: 10px;
+  display: flex;
+}
+
+.moonka-sidebar__logo {
+  background: var(--color-ink);
+  width: 38px;
+  height: 38px;
+  color: var(--color-yellow);
+  font-family: var(--font-display);
+  border: 3px solid var(--color-ink);
+  place-items: center;
+  font-size: 19px;
+  display: grid;
+  transform: rotate(-4deg);
+}
+
+.moonka-sidebar__brand-text {
+  flex-direction: column;
+  line-height: 1.05;
+  display: flex;
+}
+
+.moonka-sidebar__brand-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.moonka-sidebar__brand-tagline {
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.moonka-sidebar__new-question {
+  background: var(--color-pink);
+  color: var(--color-paper);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  text-align: left;
+  letter-spacing: .02em;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+.moonka-sidebar__nav {
+  flex-direction: column;
+  gap: 8px;
+  display: flex;
+}
+
+.moonka-sidebar__nav-item {
+  width: 100%;
+  color: var(--color-ink);
+  box-shadow: none;
+  background: none;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+}
+
+.moonka-sidebar__nav-item[data-active="true"] {
+  background: var(--color-ink);
+  color: var(--color-yellow);
+  box-shadow: 4px 4px 0 var(--color-pink);
+}
+
+.moonka-sidebar__nav-icon {
+  text-align: center;
+  width: 18px;
+}
+
+.moonka-sidebar__nav-label {
+  text-align: left;
+  flex: 1;
+}
+
+.moonka-sidebar__nav-badge {
+  background: var(--color-ink);
+  color: var(--color-yellow);
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moonka-sidebar__nav-badge[data-active="true"] {
+  background: var(--color-yellow);
+  color: var(--color-ink);
+}
+
+.moonka-sidebar__kb-card {
+  background: var(--color-cyan);
+  border: var(--border-width) solid var(--color-ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  flex-direction: column;
+  gap: 7px;
+  margin-top: auto;
+  padding: 12px;
+  display: flex;
+  transform: rotate(-1.2deg);
+}
+
+.moonka-sidebar__kb-count {
+  font-size: 22px;
+  font-family: var(--font-display);
+}
+
+.moonka-sidebar__kb-count span {
+  font-size: 12px;
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.moonka-sidebar__kb-bar {
+  border: var(--border-width) solid var(--color-ink);
+  background: var(--color-paper);
+  height: 12px;
+}
+
+.moonka-sidebar__kb-bar-fill {
+  background: var(--color-lime);
+  height: 100%;
+}
+
+.moonka-sidebar__kb-updated {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moonka-sidebar__user {
+  align-items: center;
+  gap: 9px;
+  display: flex;
+}
+
+.moonka-sidebar__user-avatar {
+  background: var(--color-violet);
+  width: 30px;
+  height: 30px;
+  color: var(--color-paper);
+  border: var(--border-width) solid var(--color-ink);
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+}
+
+.moonka-sidebar__user-name {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/*# sourceMappingURL=Desktop_Repos_Brave_Unit8200_next_src_components_moonka_sidebar_css_bad6b30c._.single.css.map*/

@@ -16,24 +16,27 @@ const transcriptSuffix = "-transcription.txt"
 // transcriptLine matches one line of an stt transcript artifact.
 var transcriptLine = regexp.MustCompile(`^\[(\d+) - (\d+)\]\s?(.*)$`)
 
-// Service turns a prompt into a grounded answer: embed → search → read the
-// cited bytes out of the bucket → ask the model.
+// Service orchestrates the RAG search pipeline.
+//
+// Chunk text is not stored in Qdrant: the payload only says which bucket object
+// a chunk lives in and which bytes it spans, so a hit is turned back into text
+// with an HTTP Range read. Bucket → backend traffic is free, the index stays
+// small, and a citation can never drift out of sync with its source.
 type Service struct {
 	logger        *log.Logger
 	embedder      *Embedder
 	qdrant        *QdrantClient
 	storage       *S3Storage
-	llm           *LLM
 	maxQuoteBytes int64
 }
 
-// ServiceConfig holds tuning knobs for the answer pipeline.
+// ServiceConfig holds tuning knobs for retrieval.
 type ServiceConfig struct {
 	MaxQuoteBytes int64 // hard cap on how much text one citation may pull
 }
 
 // NewService creates a new RAG search service.
-func NewService(logger *log.Logger, embedder *Embedder, qdrant *QdrantClient, storage *S3Storage, llm *LLM, cfg ServiceConfig) *Service {
+func NewService(logger *log.Logger, embedder *Embedder, qdrant *QdrantClient, storage *S3Storage, cfg ServiceConfig) *Service {
 	if logger == nil {
 		logger = log.Default()
 	}
@@ -45,58 +48,29 @@ func NewService(logger *log.Logger, embedder *Embedder, qdrant *QdrantClient, st
 		embedder:      embedder,
 		qdrant:        qdrant,
 		storage:       storage,
-		llm:           llm,
 		maxQuoteBytes: cfg.MaxQuoteBytes,
 	}
 }
 
-// Source is one citation backing the answer.
-type Source struct {
-	Ref       int     `json:"ref"`                // the [n] the answer refers to
-	FileKey   string  `json:"file_key"`           // text object the quote came from
-	SourceKey string  `json:"source_key"`         // what the user actually uploaded
-	FileExt   string  `json:"file_ext"`           // extension of SourceKey
-	ChunkID   string  `json:"chunk_id"`           // byte range that matched
-	Score     float64 `json:"score"`              // vector similarity
-	Quote     string  `json:"quote"`              // text read back from the bucket
-	StartMS   *int64  `json:"start_ms,omitempty"` // position in a recording
-	EndMS     *int64  `json:"end_ms,omitempty"`   // position in a recording
-	Timecode  string  `json:"timecode,omitempty"` // human-readable "12:03–14:40"
+// SearchResult represents the final structured response.
+type SearchResult struct {
+	ChunkID      string   `json:"chunk_id"`
+	FileID       string   `json:"file_id"`  // mapped to file_hash
+	FileKey      string   `json:"file_key"` // text object the excerpt was read from
+	FileExt      string   `json:"file_ext"`
+	Title        string   `json:"title"`              // source key: what the user uploaded
+	Text         string   `json:"text"`               // excerpt, read back from the bucket
+	Timecode     string   `json:"timecode,omitempty"` // "12:03–14:40" for recordings
+	Score        float64  `json:"score"`
+	AdjacentPrev []string `json:"adjacent_prev"` // list of chunk_ids before this one
+	AdjacentNext []string `json:"adjacent_next"` // list of chunk_ids after this one
 }
 
-// Answer is the full response: generated prose plus what it stands on.
-type Answer struct {
-	Answer  string   `json:"answer"`
-	Sources []Source `json:"sources"`
-}
-
-// Answer runs the whole retrieval-augmented pipeline for one prompt.
-func (s *Service) Answer(ctx context.Context, prompt string, topK, adjCount int) (Answer, error) {
-	sources, err := s.retrieve(ctx, prompt, topK, adjCount)
-	if err != nil {
-		return Answer{}, err
-	}
-	if len(sources) == 0 {
-		return Answer{Answer: "", Sources: []Source{}}, nil
-	}
-
-	if !s.llm.Configured() {
-		s.logger.Println("warning: no LLM configured, returning citations without a generated answer")
-		return Answer{Answer: "", Sources: sources}, nil
-	}
-
-	generated, err := s.llm.Complete(ctx, answerSystemPrompt, buildUserPrompt(prompt, sources))
-	if err != nil {
-		return Answer{}, fmt.Errorf("generating answer: %w", err)
-	}
-
-	return Answer{Answer: generated, Sources: sources}, nil
-}
-
-// retrieve finds the best-matching chunks and reads their text back out of the
-// bucket, widening each hit by adjCount neighbouring chunks so the model sees
-// the sentences around the match rather than a bare fragment.
-func (s *Service) retrieve(ctx context.Context, prompt string, topK, adjCount int) ([]Source, error) {
+// Search embeds the prompt, finds the nearest chunks, and reads each one's text
+// back out of the bucket. adjCount widens a hit by that many neighbouring
+// chunks on either side — since neighbours are contiguous in the file, that
+// costs nothing extra: it is the same single Range request, just wider.
+func (s *Service) Search(ctx context.Context, prompt string, topK int, adjCount int) ([]SearchResult, error) {
 	vector, err := s.embedder.Embed(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("embedding prompt: %w", err)
@@ -106,31 +80,70 @@ func (s *Service) retrieve(ctx context.Context, prompt string, topK, adjCount in
 	if err != nil {
 		return nil, fmt.Errorf("qdrant search: %w", err)
 	}
-	s.logger.Printf("found %d hits for prompt", len(hits))
+	s.logger.Printf("Found %d hits for prompt", len(hits))
 
 	// One scroll per file, reused across hits from the same document.
 	chunksByFile := make(map[string][]ScoredPoint)
 	// Byte windows already quoted per file, so two nearby hits in the same
-	// document do not send the model the same paragraph twice.
+	// document do not return the same paragraph twice.
 	quoted := make(map[string][][2]int64)
 
-	sources := make([]Source, 0, len(hits))
+	var results []SearchResult
 
 	for _, hit := range hits {
-		if hit.Payload == nil {
+		payload := hit.Payload
+		if payload == nil {
 			continue
 		}
 
-		fileKey, _ := hit.Payload["file_key"].(string)
-		chunkID, _ := hit.Payload["chunk_id"].(string)
-		if fileKey == "" || chunkID == "" {
-			s.logger.Printf("warning: hit %s has no file_key/chunk_id — reindex it", hit.ID)
+		fileHash, _ := payload["file_hash"].(string)
+		fileExt, _ := payload["file_ext"].(string)
+		chunkID, _ := payload["chunk_id"].(string)
+		fileKey, _ := payload["file_key"].(string)
+
+		title, _ := payload["source_key"].(string)
+		if title == "" {
+			// Points written before byte addressing carried the upload key
+			// under "key" instead.
+			title, _ = payload["key"].(string)
+		}
+
+		if fileHash == "" || chunkID == "" {
+			s.logger.Printf("Warning: hit %s missing file_hash or chunk_id", hit.ID)
+			continue
+		}
+
+		result := SearchResult{
+			ChunkID:      chunkID,
+			FileID:       fileHash,
+			FileKey:      fileKey,
+			FileExt:      fileExt,
+			Title:        title,
+			Score:        hit.Score,
+			AdjacentPrev: []string{},
+			AdjacentNext: []string{},
+		}
+
+		if startMS, ok := payloadInt(payload, "start_ms"); ok {
+			endMS, _ := payloadInt(payload, "end_ms")
+			result.Timecode = formatTimecode(startMS) + "–" + formatTimecode(endMS)
+		}
+
+		if fileKey == "" {
+			// A stale point from before byte addressing. It may still carry an
+			// inline excerpt; without one it is unusable until re-indexed.
+			result.Text, _ = payload["text"].(string)
+			if result.Text == "" {
+				s.logger.Printf("Warning: hit %s has no file_key and no text — re-index it", hit.ID)
+				continue
+			}
+			results = append(results, result)
 			continue
 		}
 
 		start, end, err := DecodeChunkID(chunkID)
 		if err != nil {
-			s.logger.Printf("warning: hit %s has unusable chunk_id %q: %v", hit.ID, chunkID, err)
+			s.logger.Printf("Warning: hit %s has unusable chunk_id %q: %v", hit.ID, chunkID, err)
 			continue
 		}
 
@@ -138,17 +151,18 @@ func (s *Service) retrieve(ctx context.Context, prompt string, topK, adjCount in
 		if !ok {
 			siblings, err = s.qdrant.GetChunksByFileKey(ctx, fileKey)
 			if err != nil {
-				s.logger.Printf("warning: no adjacency for %q: %v", fileKey, err)
-				siblings = nil
+				s.logger.Printf("Warning: failed to get chunks for %q: %v", fileKey, err)
+				siblings = nil // continue anyway without adjacency
 			}
 			sortChunksByStart(siblings)
 			chunksByFile[fileKey] = siblings
 		}
 
-		// Adjacency is just a wider byte range: neighbours are contiguous in
-		// the file, so one Range request covers the match and its context.
-		start, end = widenRange(siblings, chunkID, adjCount, start, end)
-		if span := end - start + 1; span > s.maxQuoteBytes {
+		prev, next := findAdjacency(siblings, chunkID, adjCount)
+		result.AdjacentPrev, result.AdjacentNext = prev, next
+
+		start, end = widenRange(prev, next, start, end)
+		if end-start+1 > s.maxQuoteBytes {
 			end = start + s.maxQuoteBytes - 1
 		}
 
@@ -156,47 +170,25 @@ func (s *Service) retrieve(ctx context.Context, prompt string, topK, adjCount in
 			continue
 		}
 
-		quote, err := s.readQuote(ctx, fileKey, start, end)
+		text, err := s.readExcerpt(ctx, fileKey, start, end)
 		if err != nil {
-			s.logger.Printf("warning: cannot read %s bytes=%d-%d: %v", fileKey, start, end, err)
+			s.logger.Printf("Warning: cannot read %s bytes=%d-%d: %v", fileKey, start, end, err)
 			continue
 		}
-		if strings.TrimSpace(quote) == "" {
+		if strings.TrimSpace(text) == "" {
 			continue
 		}
 		quoted[fileKey] = append(quoted[fileKey], [2]int64{start, end})
 
-		sourceKey, _ := hit.Payload["source_key"].(string)
-		if sourceKey == "" {
-			sourceKey = fileKey
-		}
-		fileExt, _ := hit.Payload["file_ext"].(string)
-
-		source := Source{
-			Ref:       len(sources) + 1,
-			FileKey:   fileKey,
-			SourceKey: sourceKey,
-			FileExt:   fileExt,
-			ChunkID:   chunkID,
-			Score:     hit.Score,
-			Quote:     quote,
-		}
-
-		if startMS, ok := payloadInt(hit.Payload, "start_ms"); ok {
-			endMS, _ := payloadInt(hit.Payload, "end_ms")
-			source.StartMS = &startMS
-			source.EndMS = &endMS
-			source.Timecode = formatTimecode(startMS) + "–" + formatTimecode(endMS)
-		}
-
-		sources = append(sources, source)
+		result.Text = text
+		results = append(results, result)
 	}
 
-	return sources, nil
+	return results, nil
 }
 
-// readQuote pulls a byte range out of the bucket and makes it readable.
-func (s *Service) readQuote(ctx context.Context, fileKey string, start, end int64) (string, error) {
+// readExcerpt pulls a byte range out of the bucket and makes it readable.
+func (s *Service) readExcerpt(ctx context.Context, fileKey string, start, end int64) (string, error) {
 	data, err := s.storage.FetchRange(ctx, fileKey, start, end)
 	if err != nil {
 		return "", err
@@ -209,13 +201,8 @@ func (s *Service) readQuote(ctx context.Context, fileKey string, start, end int6
 	return strings.TrimSpace(text), nil
 }
 
-// widenRange grows [start, end] to also cover count chunks on either side.
-func widenRange(sorted []ScoredPoint, chunkID string, count int, start, end int64) (int64, int64) {
-	if count <= 0 || len(sorted) == 0 {
-		return start, end
-	}
-
-	prev, next := findAdjacency(sorted, chunkID, count)
+// widenRange grows [start, end] to also cover the given neighbouring chunks.
+func widenRange(prev, next []string, start, end int64) (int64, int64) {
 	if len(prev) > 0 {
 		if s, _, err := DecodeChunkID(prev[0]); err == nil && s < start {
 			start = s
@@ -304,7 +291,7 @@ func findAdjacency(sortedChunks []ScoredPoint, targetChunkID string, count int) 
 	prev = make([]string, 0)
 	next = make([]string, 0)
 
-	if len(sortedChunks) == 0 {
+	if len(sortedChunks) == 0 || count <= 0 {
 		return prev, next
 	}
 

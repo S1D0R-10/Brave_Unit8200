@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/moonka-app.css"],"sourcesContent":[".moonka-main {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-width: 0;\r\n}\r\n"],"names":[],"mappings":"AAAA"}}]
+}

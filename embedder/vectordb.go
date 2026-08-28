@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 // VectorRecord represents a single chunk vector to be stored.
@@ -189,6 +190,8 @@ func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) er
 
 	q.logger.Printf("[qdrant] upserting %d points to %q", len(records), q.collection)
 
+	indexedAt := time.Now().UTC().Format(time.RFC3339)
+
 	points := make([]qdrantPoint, len(records))
 	for i, r := range records {
 		// Deterministic point ID derived from file_key + chunk_id. Qdrant only
@@ -201,6 +204,7 @@ func (q *QdrantStore) SaveChunks(ctx context.Context, records []VectorRecord) er
 			"source_key": r.SourceKey,
 			"file_ext":   r.FileExt,
 			"chunk_id":   r.ChunkID,
+			"indexed_at": indexedAt,
 		}
 		if r.Timed {
 			payload["start_ms"] = r.StartMS

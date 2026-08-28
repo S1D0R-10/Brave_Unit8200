@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/thinking-view.css"],"sourcesContent":[".moonka-thinking {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  flex: 1;\r\n  gap: 18px;\r\n}\r\n\r\n.moonka-thinking__pulse {\r\n  width: 56px;\r\n  height: 56px;\r\n  background: var(--color-pink);\r\n  border: var(--border-width-lg) solid var(--color-ink);\r\n  animation: nb-pulse 0.7s ease-in-out infinite;\r\n}\r\n\r\n.moonka-thinking__label {\r\n  font-family: var(--font-display);\r\n  font-size: 15px;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.08em;\r\n}\r\n"],"names":[],"mappings":"AAAA;;;;;;;;;AASA;;;;;;;;AAQA"}}]
+}
