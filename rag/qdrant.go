@@ -129,6 +129,164 @@ type scrollResult struct {
 	Points []ScoredPoint `json:"points"`
 }
 
+// EnsureCollection creates the given collection (with a tiny 2-dim vector,
+// since it's only used as a JSON document store, not for similarity search)
+// if it doesn't already exist.
+func (q *QdrantClient) EnsureCollection(ctx context.Context, collection string) error {
+	url := fmt.Sprintf("%s/collections/%s", q.baseURL, collection)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("checking collection: %w", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	}
+
+	body := map[string]interface{}{
+		"vectors": map[string]interface{}{
+			"size":     2,
+			"distance": "Cosine",
+		},
+	}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshaling create request: %w", err)
+	}
+
+	req, err = http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err = q.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("creating collection: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("creating collection %q: %d: %s", collection, resp.StatusCode, string(respBody))
+	}
+
+	q.logger.Printf("[qdrant] created collection %q", collection)
+	return nil
+}
+
+// UpsertDoc stores a single JSON document (with a throwaway vector) in the
+// given collection. Used for append-only stores like feedback/handoff, where
+// we only ever need to write and later scroll through everything.
+func (q *QdrantClient) UpsertDoc(ctx context.Context, collection string, id string, payload map[string]interface{}) error {
+	body := map[string]interface{}{
+		"points": []qdrantPoint{
+			{ID: id, Vector: []float32{0, 0}, Payload: payload},
+		},
+	}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshaling upsert: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/collections/%s/points", q.baseURL, collection)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("creating upsert request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("upserting doc: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upsert failed: %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+// qdrantPoint is a single point for the Qdrant upsert API.
+type qdrantPoint struct {
+	ID      string                 `json:"id"`
+	Vector  []float32              `json:"vector"`
+	Payload map[string]interface{} `json:"payload"`
+}
+
+// ScrollCollection pages through every point in a collection, calling visit
+// for each one, until exhausted or the collection doesn't exist yet.
+func (q *QdrantClient) ScrollCollection(ctx context.Context, collection string, visit func(ScoredPoint)) error {
+	var offset interface{}
+
+	for {
+		body := map[string]interface{}{
+			"limit":        250,
+			"with_payload": true,
+			"with_vector":  false,
+		}
+		if offset != nil {
+			body["offset"] = offset
+		}
+
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("marshaling scroll request: %w", err)
+		}
+
+		url := fmt.Sprintf("%s/collections/%s/points/scroll", q.baseURL, collection)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
+		if err != nil {
+			return fmt.Errorf("creating scroll request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := q.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("calling scroll API: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusNotFound {
+			resp.Body.Close()
+			return nil // collection doesn't exist yet — nothing to scroll
+		}
+		if resp.StatusCode != http.StatusOK {
+			respBody, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return fmt.Errorf("scroll API returned %d: %s", resp.StatusCode, string(respBody))
+		}
+
+		var result struct {
+			Result struct {
+				Points         []ScoredPoint `json:"points"`
+				NextPageOffset interface{}   `json:"next_page_offset"`
+			} `json:"result"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			return fmt.Errorf("decoding scroll response: %w", err)
+		}
+		resp.Body.Close()
+
+		for _, p := range result.Result.Points {
+			visit(p)
+		}
+
+		if result.Result.NextPageOffset == nil || len(result.Result.Points) == 0 {
+			return nil
+		}
+		offset = result.Result.NextPageOffset
+	}
+}
+
 // GetChunksByFile fetches all point metadata (payloads) for a given file_hash.
 func (q *QdrantClient) GetChunksByFile(ctx context.Context, fileHash string) ([]ScoredPoint, error) {
 	// Qdrant scroll request filtering by file_hash

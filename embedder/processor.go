@@ -91,14 +91,17 @@ func (p *Processor) ProcessFile(ctx context.Context, key string) error {
 		return fmt.Errorf("embedding %q: %w", key, err)
 	}
 
-	// 7. Build records and store vectors + payload directly in Qdrant.
-	//    No chunk text is persisted — only vectors and metadata.
+	// 7. Build records and store vectors + payload (including chunk text and
+	//    source key) directly in Qdrant, so answers can be grounded and
+	//    cited against the real source document.
 	records := make([]VectorRecord, len(chunks))
 	for i, c := range chunks {
 		records[i] = VectorRecord{
 			FileHash: fileHash,
 			FileExt:  fileExt,
 			ChunkID:  c.ChunkID,
+			Key:      key,
+			Text:     texts[i],
 			Vector:   vectors[i],
 		}
 	}

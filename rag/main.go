@@ -21,27 +21,47 @@ func main() {
 		Model:    envOrDefault("RAG_EMBED_MODEL", "text-embedding-3-small"),
 	}
 
+	// Chat completions reuse the same OpenRouter key as embeddings —
+	// RAG_EMBED_ENDPOINT already points at openrouter.ai/api/v1/embeddings,
+	// so RAG_EMBED_API_KEY is an OpenRouter key and works for chat too.
+	chatCfg := ChatConfig{
+		Endpoint: envOrDefault("RAG_CHAT_ENDPOINT", "https://openrouter.ai/api/v1/chat/completions"),
+		APIKey:   envOrDefault("RAG_CHAT_API_KEY", os.Getenv("RAG_EMBED_API_KEY")),
+		Model:    envOrDefault("RAG_CHAT_MODEL", "openai/gpt-4o-mini"),
+	}
+
 	qdrantCfg := QdrantConfig{
 		Host:       envOrDefault("RAG_QDRANT_HOST", "qdrant.railway.internal"),
 		Port:       envOrInt("RAG_QDRANT_PORT", 6333),
 		Collection: "citations",
 	}
 
+	noCoverageThreshold := envOrFloat("RAG_NO_COVERAGE_THRESHOLD", 0.5)
+	topK := envOrInt("RAG_DRAFT_TOP_K", 5)
+
 	embedder := NewEmbedder(embedCfg, logger)
 	qdrant := NewQdrantClient(qdrantCfg, logger)
+	chat := NewChatClient(chatCfg, logger)
 	service := NewService(logger, embedder, qdrant)
-	handler := NewHandler(service, logger)
+	draftService := NewDraftService(logger, service, chat, noCoverageThreshold, topK)
+	store := NewStore(logger, qdrant)
+	handler := NewHandler(service, draftService, store, logger)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/search", handler.HandleSearch)
+	mux.HandleFunc("/draft", handler.HandleDraft)
+	mux.HandleFunc("/feedback", handler.HandleFeedback)
+	mux.HandleFunc("/handoff", handler.HandleHandoff)
+	mux.HandleFunc("/kb/stats", handler.HandleKbStats)
 	mux.HandleFunc("/ping", handler.HandlePing)
 
 	addr := fmt.Sprintf(":%s", port)
 	logger.Printf("Starting RAG Search on %s", addr)
 	logger.Printf("Embed: %s model=%s", embedCfg.Endpoint, embedCfg.Model)
+	logger.Printf("Chat: %s model=%s", chatCfg.Endpoint, chatCfg.Model)
 	logger.Printf("Qdrant: %s:%d", qdrantCfg.Host, qdrantCfg.Port)
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, withCORS(mux)); err != nil {
 		logger.Fatalf("server error: %v", err)
 	}
 }
@@ -59,6 +79,18 @@ func envOrInt(key string, defaultVal int) int {
 		return defaultVal
 	}
 	n, err := strconv.Atoi(v)
+	if err != nil {
+		return defaultVal
+	}
+	return n
+}
+
+func envOrFloat(key string, defaultVal float64) float64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	n, err := strconv.ParseFloat(v, 64)
 	if err != nil {
 		return defaultVal
 	}
