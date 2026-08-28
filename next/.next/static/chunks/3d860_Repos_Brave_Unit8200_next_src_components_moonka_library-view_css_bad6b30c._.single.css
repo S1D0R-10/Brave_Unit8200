@@ -1,0 +1,132 @@
+/* [project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/library-view.css [app-client] (css) */
+.moonka-library {
+  flex-direction: column;
+  gap: 20px;
+  padding: 34px 40px;
+  display: flex;
+}
+
+.moonka-library__header {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  display: flex;
+}
+
+.moonka-library__heading {
+  flex: 1;
+  min-width: 280px;
+}
+
+.moonka-library__title {
+  font-size: 36px;
+}
+
+.moonka-library__subtitle {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.moonka-library__search {
+  background: var(--color-paper);
+  border: var(--border-width) solid var(--color-ink);
+  width: 220px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.moonka-library__upload {
+  background: var(--color-lime);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  padding: 11px 16px;
+  font-size: 13px;
+}
+
+.moonka-library__dropzone {
+  border: 4px dashed var(--color-ink);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  background: var(--color-paper);
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  padding: 26px;
+  font-size: 13px;
+  display: flex;
+}
+
+.moonka-library__table {
+  border: var(--border-width-lg) solid var(--color-ink);
+  background: var(--color-paper);
+  overflow-x: auto;
+}
+
+.moonka-library__row {
+  border-top: var(--border-width) solid var(--color-ink);
+  background: var(--color-paper);
+  grid-template-columns: 1fr 110px 110px 90px 150px 80px;
+  min-width: 640px;
+  display: grid;
+}
+
+.moonka-library__row:first-child {
+  border-top: 0;
+}
+
+.moonka-library__row[data-odd="true"] {
+  background: var(--color-bg-alt);
+}
+
+.moonka-library__row--head {
+  background: var(--color-ink);
+  color: var(--color-yellow);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  border-top: 0;
+  font-size: 10.5px;
+}
+
+.moonka-library__cell {
+  padding: 11px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.moonka-library__row--head .moonka-library__cell {
+  padding: 10px 12px;
+}
+
+.moonka-library__cell--name {
+  cursor: pointer;
+}
+
+.moonka-library__cell--added {
+  opacity: .65;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.moonka-library__cell--uses {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.moonka-library__cell--status {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.moonka-library__remove {
+  border: 2px solid var(--color-ink);
+  cursor: pointer;
+  text-transform: uppercase;
+  background: none;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/*# sourceMappingURL=3d860_Repos_Brave_Unit8200_next_src_components_moonka_library-view_css_bad6b30c._.single.css.map*/

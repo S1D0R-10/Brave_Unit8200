@@ -4,9 +4,10 @@ import "./sidebar.css";
 interface SidebarProps {
   activeNavId: string;
   onNavigate: (view: View) => void;
+  docCount?: number;
 }
 
-export function Sidebar({ activeNavId, onNavigate }: SidebarProps) {
+export function Sidebar({ activeNavId, onNavigate, docCount }: SidebarProps) {
   return (
     <aside className="moonka-sidebar">
       <div className="moonka-sidebar__brand">
@@ -40,7 +41,7 @@ export function Sidebar({ activeNavId, onNavigate }: SidebarProps) {
               <span className="moonka-sidebar__nav-label">{item.label}</span>
               {item.badge && (
                 <span className="moonka-sidebar__nav-badge" data-active={isActive}>
-                  {item.badge}
+                  {item.id === "library" && docCount !== undefined ? docCount : item.badge}
                 </span>
               )}
             </button>
@@ -51,7 +52,7 @@ export function Sidebar({ activeNavId, onNavigate }: SidebarProps) {
       <div className="moonka-sidebar__kb-card">
         <div className="moonka-section-label">Baza wiedzy</div>
         <div className="moonka-sidebar__kb-count">
-          104 <span>dokumenty</span>
+          {docCount !== undefined ? docCount : 104} <span>dokumenty</span>
         </div>
         <div className="moonka-sidebar__kb-bar">
           <div className="moonka-sidebar__kb-bar-fill" style={{ width: "86%" }} />

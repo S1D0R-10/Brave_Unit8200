@@ -168,15 +168,6 @@ export const SOURCES: Source[] = [
   },
 ];
 
-export const DOCS: DocRow[] = [
-  { name: "Dojrzewanie bez wstydu — poradnik dla rodziców.pdf", kind: "PDF", accent: "yellow", added: "12.03.2025", uses: "31", status: "Zindeksowany" },
-  { name: "Pierwsza miesiączka w szkole — materiał dla nauczycieli.pdf", kind: "PDF", accent: "yellow", added: "04.02.2025", uses: "24", status: "Zindeksowany" },
-  { name: "Jak rozmawiać z nastolatką o zmieniającym się ciele", kind: "BLOG", accent: "cyan", added: "18.11.2024", uses: "19", status: "Zindeksowany" },
-  { name: "Pornografia — rozmowa, której nie da się odłożyć.pdf", kind: "PDF", accent: "yellow", added: "22.01.2025", uses: "17", status: "Zindeksowany" },
-  { name: "Kiedy wycofanie to coś więcej (webinar 04.2025)", kind: "WEBINAR", accent: "lime", added: "09.04.2025", uses: "8", status: "Transkrypcja gotowa" },
-  { name: "Newsletter 04/2025 — dobrostan po feriach", kind: "NEWS", accent: "violet", added: "02.05.2025", uses: "3", status: "Zindeksowany" },
-  { name: "Poradnik dla szkół 2022 (stara podstawa programowa).pdf", kind: "PDF", accent: "pink", added: "30.08.2022", uses: "1", status: "NIEAKTUALNY" },
-];
 
 export const HISTORY: HistoryItem[] = [
   { who: "KS", q: "Córka wstydzi się przebierać na WF — jak zacząć rozmowę?", meta: "Kasia · 12 dni temu · 3 źródła", status: "WYSŁANA", statusAccent: "cyan", avatarAccent: "cyan" },

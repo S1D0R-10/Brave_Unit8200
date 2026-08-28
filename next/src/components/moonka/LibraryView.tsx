@@ -1,18 +1,93 @@
-import { DOCS } from "@/lib/moonka-data";
+"use client";
+
+import { useState, useRef } from "react";
+import { type DocRow } from "@/lib/moonka-data";
 import "./library-view.css";
 
 interface LibraryViewProps {
   onOpenDoc: (docNumber: number) => void;
+  docs: DocRow[];
+  setDocs: React.Dispatch<React.SetStateAction<DocRow[]>>;
 }
 
-export function LibraryView({ onOpenDoc }: LibraryViewProps) {
+export function LibraryView({ onOpenDoc, docs, setDocs }: LibraryViewProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const newDoc: DocRow = {
+        name: file.name,
+        kind: "FILE",
+        accent: "pink",
+        added: new Date().toLocaleDateString("pl-PL"),
+        uses: "0",
+        status: "Wgrywanie...",
+      };
+
+      setDocs((prev) => [newDoc, ...prev]);
+
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        });
+
+        if (!res.ok) throw new Error("Failed to get presigned URL");
+        const { url } = await res.json();
+
+        const uploadRes = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (!uploadRes.ok) throw new Error("Upload to S3 failed");
+
+        setDocs((prev) =>
+          prev.map((doc) => (doc.name === file.name ? { ...doc, status: "Wgrano do S3" } : doc))
+        );
+      } catch (error) {
+        console.error("Upload error:", error);
+        setDocs((prev) =>
+          prev.map((doc) => (doc.name === file.name ? { ...doc, status: "Błąd wgrania" } : doc))
+        );
+      }
+    }
+    
+    // Clear input so the same file can be uploaded again if needed
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleUpload(e.dataTransfer.files);
+  };
+
   return (
     <div className="moonka-library moonka-scrollpane">
       <div className="moonka-library__header">
         <div className="moonka-library__heading">
           <h3 className="moonka-library__title">MATERIAŁY</h3>
           <span className="moonka-library__subtitle">
-            104 dokumenty · w tej wersji przeszukiwany jest tylko tekst
+            {docs.length} dokumenty · w tej wersji przeszukiwany jest tylko tekst
           </span>
         </div>
         <input
@@ -20,12 +95,32 @@ export function LibraryView({ onOpenDoc }: LibraryViewProps) {
           className="moonka-library__search"
           placeholder="Szukaj w nazwach…"
         />
-        <button type="button" className="moonka-btn moonka-btn-loud moonka-library__upload">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: "none" }} 
+          multiple 
+          onChange={(e) => handleUpload(e.target.files)} 
+        />
+        <button 
+          type="button" 
+          className="moonka-btn moonka-btn-loud moonka-library__upload"
+          onClick={() => fileInputRef.current?.click()}
+        >
           + Wgraj pliki
         </button>
       </div>
 
-      <div className="moonka-library__dropzone">
+      <div 
+        className={`moonka-library__dropzone ${isDragging ? "moonka-library__dropzone--active" : ""}`}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        style={{
+          border: isDragging ? "2px dashed var(--moonka-accent-pink)" : undefined,
+          backgroundColor: isDragging ? "var(--moonka-gray-900)" : undefined
+        }}
+      >
         Przeciągnij PDF-y tutaj — indeksowanie ok. minutę na dokument
       </div>
 
@@ -38,7 +133,7 @@ export function LibraryView({ onOpenDoc }: LibraryViewProps) {
           <div className="moonka-library__cell">Status</div>
           <div className="moonka-library__cell" />
         </div>
-        {DOCS.map((doc, index) => (
+        {docs.map((doc, index) => (
           <div key={doc.name} className="moonka-library__row" data-odd={index % 2 === 1}>
             <div
               className="moonka-library__cell moonka-library__cell--name"
@@ -55,7 +150,7 @@ export function LibraryView({ onOpenDoc }: LibraryViewProps) {
             <div className="moonka-library__cell moonka-library__cell--uses">{doc.uses}</div>
             <div className="moonka-library__cell moonka-library__cell--status">{doc.status}</div>
             <div className="moonka-library__cell">
-              <button type="button" className="moonka-library__remove">
+              <button type="button" className="moonka-library__remove" onClick={() => setDocs(prev => prev.filter(d => d.name !== doc.name))}>
                 Usuń
               </button>
             </div>

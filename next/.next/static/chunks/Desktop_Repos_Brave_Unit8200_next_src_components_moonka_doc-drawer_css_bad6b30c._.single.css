@@ -1,0 +1,153 @@
+/* [project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/doc-drawer.css [app-client] (css) */
+.moonka-doc-drawer__overlay {
+  z-index: 40;
+  background: rgba(18, 16, 14, .8);
+  justify-content: flex-end;
+  display: flex;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.moonka-doc-drawer {
+  width: min(660px, 100vw);
+  height: 100%;
+  padding: 0 0 0 14px;
+  position: relative;
+}
+
+.moonka-doc-drawer__frame {
+  height: 100%;
+  position: relative;
+}
+
+.moonka-doc-drawer__frame:before {
+  content: "";
+  background: var(--color-paper);
+  border-left: var(--border-width-lg) solid var(--color-ink);
+  filter: url("#torn");
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  right: 0;
+}
+
+.moonka-doc-drawer__content {
+  flex-direction: column;
+  height: 100%;
+  display: flex;
+  position: relative;
+}
+
+.moonka-doc-drawer__header {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  align-items: center;
+  gap: 12px;
+  margin-left: 6px;
+  padding: 18px 22px;
+  display: flex;
+}
+
+.moonka-doc-drawer__header-text {
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  display: flex;
+}
+
+.moonka-doc-drawer__title {
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.moonka-doc-drawer__locator {
+  color: var(--color-yellow);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.moonka-doc-drawer__original {
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 0;
+  padding: 7px 11px;
+  font-size: 11px;
+}
+
+.moonka-doc-drawer__close {
+  background: var(--color-pink);
+  width: 34px;
+  height: 34px;
+  color: var(--color-paper);
+  cursor: pointer;
+  border: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.moonka-doc-drawer__body {
+  flex-direction: column;
+  flex: 1;
+  gap: 14px;
+  padding: 26px 30px 26px 34px;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.7;
+  display: flex;
+  overflow: auto;
+}
+
+.moonka-doc-drawer__before, .moonka-doc-drawer__after {
+  opacity: .7;
+  margin: 0;
+}
+
+.moonka-doc-drawer__highlight {
+  background: var(--color-yellow);
+  border: var(--border-width) solid var(--color-ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-ink);
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.moonka-doc-drawer__tail {
+  opacity: .4;
+  margin: 0;
+}
+
+.moonka-doc-drawer__footer {
+  background: var(--color-lime);
+  border-top: var(--border-width-lg) solid var(--color-ink);
+  align-items: center;
+  gap: 10px;
+  margin-left: 6px;
+  padding: 14px 22px;
+  display: flex;
+}
+
+.moonka-doc-drawer__used-in {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.moonka-doc-drawer__mark-stale {
+  background: var(--color-ink);
+  color: var(--color-lime);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 0;
+  padding: 7px 11px;
+  font-size: 11px;
+}
+
+/*# sourceMappingURL=Desktop_Repos_Brave_Unit8200_next_src_components_moonka_doc-drawer_css_bad6b30c._.single.css.map*/

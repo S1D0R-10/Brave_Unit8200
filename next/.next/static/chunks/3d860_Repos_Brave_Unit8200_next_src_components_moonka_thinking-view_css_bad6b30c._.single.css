@@ -1,0 +1,26 @@
+/* [project]/Desktop/Repos/Brave_Unit8200/next/src/components/moonka/thinking-view.css [app-client] (css) */
+.moonka-thinking {
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  display: flex;
+}
+
+.moonka-thinking__pulse {
+  background: var(--color-pink);
+  border: var(--border-width-lg) solid var(--color-ink);
+  width: 56px;
+  height: 56px;
+  animation: .7s ease-in-out infinite nb-pulse;
+}
+
+.moonka-thinking__label {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 15px;
+}
+
+/*# sourceMappingURL=3d860_Repos_Brave_Unit8200_next_src_components_moonka_thinking-view_css_bad6b30c._.single.css.map*/
