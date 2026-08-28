@@ -21,6 +21,7 @@ export async function GET() {
     const objects = response.Contents || [];
 
     const documents = objects.map(obj => ({
+      key: obj.Key,
       name: obj.Key?.split('-').slice(1).join('-') || obj.Key || "Unknown",
       kind: obj.Key?.split('.').pop()?.toUpperCase() || "FILE",
       accent: "yellow", // default accent
