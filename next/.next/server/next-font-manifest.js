@@ -1,1 +1,0 @@
-self.__NEXT_FONT_MANIFEST="{\n  \"app\": {\n    \"[project]/Desktop/Repos/Brave_Unit8200/next/src/app/page\": [\n      \"static/media/5e4d537aaa9e154b-s.p.01f07175.woff2\",\n      \"static/media/0c89a48fa5027cee-s.p.4564287c.woff2\"\n    ]\n  },\n  \"appUsingSizeAdjust\": true,\n  \"pages\": {},\n  \"pagesUsingSizeAdjust\": false\n}"

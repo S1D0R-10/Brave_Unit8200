@@ -74,6 +74,7 @@ type DraftNearMiss struct {
 
 type DraftResult struct {
 	Status     string          `json:"status"` // "answer" | "no_coverage" | "blocked"
+	AnswerID   string          `json:"answerId,omitempty"`
 	Sentences  []DraftSentence `json:"sentences,omitempty"`
 	Sources    []DraftSource   `json:"sources,omitempty"`
 	NearMisses []DraftNearMiss `json:"nearMisses,omitempty"`
@@ -124,7 +125,7 @@ func (d *DraftService) Draft(ctx context.Context, question string) (*DraftResult
 		return &DraftResult{Status: "no_coverage", NearMisses: nearMissesFrom(hits)}, nil
 	}
 
-	return &DraftResult{Status: "answer", Sentences: sentences, Sources: sources}, nil
+	return &DraftResult{Status: "answer", AnswerID: randomID(), Sentences: sentences, Sources: sources}, nil
 }
 
 func nearMissesFrom(hits []SearchResult) []DraftNearMiss {
