@@ -33,13 +33,20 @@ type Chunk struct {
 type ChunkerConfig struct {
 	WordsPerChunk int   // max words per chunk for prose
 	SecsPerChunk  int64 // max wall-clock span per chunk for transcripts
+
+	// MaxBytesPerChunk is a hard cap on a prose chunk's byte size. Word counting
+	// alone is not enough: PDF extraction can produce long runs without sentence
+	// punctuation or spaces, and a chunk over the embedding model's input limit
+	// (8192 tokens) makes the whole document fail to index.
+	MaxBytesPerChunk int
 }
 
 // DefaultChunkerConfig returns sensible defaults.
 func DefaultChunkerConfig() ChunkerConfig {
 	return ChunkerConfig{
-		WordsPerChunk: 500,
-		SecsPerChunk:  300,
+		WordsPerChunk:    500,
+		SecsPerChunk:     300,
+		MaxBytesPerChunk: 6000,
 	}
 }
 
@@ -81,6 +88,15 @@ func (c *Chunker) ChunkText(data []byte) ([]Chunk, error) {
 	if maxWords <= 0 {
 		maxWords = 500
 	}
+	maxBytes := c.config.MaxBytesPerChunk
+	if maxBytes <= 0 {
+		maxBytes = 6000
+	}
+
+	// A single "sentence" can exceed the byte cap outright (extracted PDF text
+	// often has no punctuation at all) — cut those down first, so afterwards
+	// every span fits and the accumulation below can only stay under the cap.
+	spans = splitOversizedSpans(text, spans, maxBytes)
 
 	var chunks []Chunk
 	start, end, words := -1, -1, 0
@@ -97,7 +113,7 @@ func (c *Chunker) ChunkText(data []byte) ([]Chunk, error) {
 		n := countWords(text[s.start:s.end])
 
 		// Adding this sentence would overflow the open chunk: close it first.
-		if start >= 0 && words+n > maxWords {
+		if start >= 0 && (words+n > maxWords || s.end-start > maxBytes) {
 			flush()
 		}
 		if start < 0 {
@@ -260,6 +276,85 @@ func lineSpans(text string) []span {
 		}
 	}
 	return spans
+}
+
+// splitOversizedSpans passes spans through, cutting any span longer than
+// maxBytes into word-boundary pieces that fit.
+func splitOversizedSpans(text string, spans []span, maxBytes int) []span {
+	var out []span
+	for _, s := range spans {
+		if s.end-s.start <= maxBytes {
+			out = append(out, s)
+			continue
+		}
+		out = append(out, splitSpanAtWords(text, s, maxBytes)...)
+	}
+	return out
+}
+
+// splitSpanAtWords cuts one oversized span into pieces of at most maxBytes,
+// breaking at whitespace; a single word longer than the limit is cut at rune
+// boundaries as the last resort.
+func splitSpanAtWords(text string, s span, maxBytes int) []span {
+	var out []span
+	segStart, segEnd := -1, -1
+	i := s.start
+	for i < s.end {
+		for i < s.end && isASCIISpace(text[i]) {
+			i++
+		}
+		if i >= s.end {
+			break
+		}
+		wordStart := i
+		for i < s.end && !isASCIISpace(text[i]) {
+			i++
+		}
+
+		if i-wordStart > maxBytes {
+			// The word alone busts the limit: flush what is open, rune-cut it.
+			if segStart >= 0 {
+				out = append(out, span{segStart, segEnd})
+				segStart = -1
+			}
+			out = append(out, splitAtRunes(text, span{wordStart, i}, maxBytes)...)
+			continue
+		}
+		if segStart >= 0 && i-segStart > maxBytes {
+			out = append(out, span{segStart, segEnd})
+			segStart = -1
+		}
+		if segStart < 0 {
+			segStart = wordStart
+		}
+		segEnd = i
+	}
+	if segStart >= 0 {
+		out = append(out, span{segStart, segEnd})
+	}
+	return out
+}
+
+// splitAtRunes cuts a span into maxBytes-sized pieces, stepping cut points
+// back onto UTF-8 rune boundaries so no piece starts or ends mid-character.
+func splitAtRunes(text string, s span, maxBytes int) []span {
+	var out []span
+	for start := s.start; start < s.end; {
+		end := start + maxBytes
+		if end >= s.end {
+			end = s.end
+		} else {
+			for end > start && !utf8.RuneStart(text[end]) {
+				end--
+			}
+			if end == start {
+				end = start + maxBytes
+			}
+		}
+		out = append(out, span{start, end})
+		start = end
+	}
+	return out
 }
 
 // appendTrimmed appends text[start:end) with ASCII whitespace trimmed from both

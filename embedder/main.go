@@ -25,8 +25,9 @@ func main() {
 	}
 
 	chunkerCfg := ChunkerConfig{
-		WordsPerChunk: envOrInt("RAG_CHUNK_WORDS", 500),
-		SecsPerChunk:  int64(envOrInt("RAG_CHUNK_SECS", 300)),
+		WordsPerChunk:    envOrInt("RAG_CHUNK_WORDS", 500),
+		SecsPerChunk:     int64(envOrInt("RAG_CHUNK_SECS", 300)),
+		MaxBytesPerChunk: envOrInt("RAG_CHUNK_MAX_BYTES", 6000),
 	}
 
 	embedCfg := EmbedderConfig{
