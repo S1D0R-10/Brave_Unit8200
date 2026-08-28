@@ -19,8 +19,27 @@ interface AnswerViewProps {
   sources: DraftSource[];
 }
 
-export function AnswerView({ question, sentences, sources }: AnswerViewProps) {
+export function AnswerView({ question, answerId, sentences, sources }: AnswerViewProps) {
   const [activeRef, setActiveRef] = useState(0);
+  const [vote, setVote] = useState<0 | 1 | -1>(0);
+
+  const sendVote = async (value: 1 | -1) => {
+    if (!answerId || vote !== 0) return;
+    setVote(value);
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answerId, vote: value }),
+      });
+      if (!response.ok) {
+        throw new Error(`/api/feedback returned ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Feedback request failed:", error);
+      setVote(0);
+    }
+  };
 
   const numBySourceId = useMemo(() => {
     const map = new Map<string, number>();
@@ -98,10 +117,26 @@ export function AnswerView({ question, sentences, sources }: AnswerViewProps) {
             </button>
           ))}
           <div className="moonka-answer__actions-spacer" />
-          <button type="button" className="moonka-answer__vote" data-accent="lime">
+          <button
+            type="button"
+            className="moonka-answer__vote"
+            data-accent="lime"
+            aria-label="Szkic pomógł"
+            disabled={!answerId || vote !== 0}
+            style={vote === -1 ? { opacity: 0.35 } : undefined}
+            onClick={() => sendVote(1)}
+          >
             👍
           </button>
-          <button type="button" className="moonka-answer__vote" data-accent="paper">
+          <button
+            type="button"
+            className="moonka-answer__vote"
+            data-accent="paper"
+            aria-label="Szkic nie pomógł"
+            disabled={!answerId || vote !== 0}
+            style={vote === 1 ? { opacity: 0.35 } : undefined}
+            onClick={() => sendVote(-1)}
+          >
             👎
           </button>
         </div>
